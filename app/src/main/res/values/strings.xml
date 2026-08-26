@@ -1,0 +1,5 @@
+<resources>
+    <!-- The only strings Android itself needs. Everything the app says lives
+         in core/Strings.kt so the iOS app says the same words. -->
+    <string name="app_name">Qasda</string>
+</resources>
