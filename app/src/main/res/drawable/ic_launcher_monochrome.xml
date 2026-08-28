@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The Qasda mark, traced from design-system/logos/qasda-app-icon.svg in the web
-  repo so the launcher, the favicon and the site all show the same drawing: a
-  magnifier with the teal dot sitting above it.
-
-  Paths are kept in the 64-unit space of the source SVG and the group places
-  them on Android's 108-unit canvas. The scale is 0.8 because the far end of
-  the handle is the outermost point of the mark - 39 units from its centre -
-  and 39 x 0.8 fits inside the 33-unit radius every launcher mask guarantees.
-  Editing a path without redoing that arithmetic can push the handle under the
-  mask on a circular launcher.
+  The themed-icon layer for Android 13 and up. Same geometry as the foreground,
+  one colour throughout: the system recolours this to match the wallpaper, so
+  the teal dot has to be part of the silhouette rather than a second colour it
+  would flatten anyway.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -33,6 +27,6 @@
             android:strokeLineCap="round" />
         <path
             android:pathData="M24.5,7 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"
-            android:fillColor="#11B99A" />
+            android:fillColor="#232522" />
     </group>
 </vector>
