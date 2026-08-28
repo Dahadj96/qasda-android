@@ -37,6 +37,7 @@ import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.Lang
 import pro.qasdatrip.core.QasdaApi
+import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.Words
 
 private const val SEARCH = "search"
@@ -67,6 +68,8 @@ fun QasdaNavHost(
     lang: Lang,
     chosenLang: Lang?,
     onLang: (Lang?) -> Unit,
+    recent: List<SearchQuery> = emptyList(),
+    onRemember: (SearchQuery) -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -136,10 +139,14 @@ fun QasdaNavHost(
             modifier = Modifier.padding(padding),
         ) {
             composable(SEARCH) {
-                SearchScreen(onSearch = { query ->
-                    vm.search(query)
-                    nav.navigate(RESULTS)
-                })
+                SearchScreen(
+                    recent = recent,
+                    onSearch = { query ->
+                        onRemember(query)
+                        vm.search(query)
+                        nav.navigate(RESULTS)
+                    },
+                )
             }
             composable(RESULTS) {
                 ResultsScreen(

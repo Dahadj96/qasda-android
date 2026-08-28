@@ -1,7 +1,10 @@
 package pro.qasdatrip.app.data
 
 import android.content.Context
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import pro.qasdatrip.core.Lang
+import pro.qasdatrip.core.SearchQuery
 
 /**
  * The handful of choices that outlive one run of the app.
@@ -31,7 +34,41 @@ class Settings(context: Context) {
             }.apply()
         }
 
+    /**
+     * The last few searches, newest first.
+     *
+     * The question is kept, never the answer: a price from last week is not a
+     * price, and showing one next to a route would be a quote we cannot stand
+     * behind. Re-running the search is the only way to say what it costs now.
+     */
+    var recent: List<SearchQuery>
+        get() = prefs.getString(KEY_RECENT, null)
+            ?.let { runCatching { json.decodeFromString(SEARCHES, it) }.getOrNull() }
+            .orEmpty()
+        set(value) {
+            prefs.edit().putString(KEY_RECENT, json.encodeToString(SEARCHES, value)).apply()
+        }
+
+    /** Newest first, no duplicates, and never more than [KEEP]. */
+    fun remember(query: SearchQuery) {
+        recent = (listOf(query) + recent.filterNot { it.sameTrip(query) }).take(KEEP)
+    }
+
+    /**
+     * Two searches are the same shortcut when they ask about the same trip.
+     * Somebody searching Alger → Paris again with one more passenger does not
+     * want two rows that differ by a number they cannot see.
+     */
+    private fun SearchQuery.sameTrip(other: SearchQuery): Boolean =
+        from == other.from && to == other.to &&
+            departDate == other.departDate && returnDate == other.returnDate
+
     private companion object {
         const val KEY_LANG = "lang"
+        const val KEY_RECENT = "recent_searches"
+        const val KEEP = 5
+
+        val json = Json { ignoreUnknownKeys = true }
+        val SEARCHES = ListSerializer(SearchQuery.serializer())
     }
 }

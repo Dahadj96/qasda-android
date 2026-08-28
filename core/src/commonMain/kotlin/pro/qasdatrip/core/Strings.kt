@@ -92,6 +92,7 @@ data class Words(
     val contactUs: String,
     val openOnSite: String,
     val version: String,
+    val recentSearches: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -135,7 +136,7 @@ data class Words(
                 systemLanguage = "Langue du téléphone",
                 howItWorks = "Comment ça marche", privacy = "Confidentialité",
                 contactUs = "Nous écrire", openOnSite = "Ouvrir sur le site",
-                version = "Version",
+                version = "Version", recentSearches = "Recherches récentes",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -177,7 +178,7 @@ data class Words(
                 systemLanguage = "لغة الهاتف",
                 howItWorks = "كيف تعمل", privacy = "الخصوصية",
                 contactUs = "اكتب لنا", openOnSite = "افتح على الموقع",
-                version = "الإصدار",
+                version = "الإصدار", recentSearches = "عمليات بحث أخيرة",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -219,7 +220,7 @@ data class Words(
                 systemLanguage = "Phone language",
                 howItWorks = "How it works", privacy = "Privacy",
                 contactUs = "Write to us", openOnSite = "Open on the site",
-                version = "Version",
+                version = "Version", recentSearches = "Recent searches",
             )
         }
     }
