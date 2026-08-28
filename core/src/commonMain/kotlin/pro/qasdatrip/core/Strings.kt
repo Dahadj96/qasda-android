@@ -39,6 +39,9 @@ data class Words(
     val economy: String,
     val searchCity: String,
     val noAirport: String,
+    val chooseDates: String,
+    val confirm: String,
+    val cancel: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -58,6 +61,7 @@ data class Words(
                 failedSub = "La connexion s’est interrompue avant que les sites répondent.",
                 retry = "Réessayer", priceBySite = "Le prix, site par site", cheapest = "le moins cher",
                 economy = "Économique", searchCity = "Ville ou aéroport", noAirport = "Aucun aéroport ne correspond",
+                chooseDates = "Choisir les dates", confirm = "Confirmer", cancel = "Annuler",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -75,6 +79,7 @@ data class Words(
                 failedSub = "انقطع الاتصال قبل أن تجيب المواقع.",
                 retry = "أعد المحاولة", priceBySite = "السعر، موقعًا بموقع", cheapest = "الأرخص",
                 economy = "اقتصادية", searchCity = "مدينة أو مطار", noAirport = "لا يوجد مطار مطابق",
+                chooseDates = "اختر التواريخ", confirm = "تأكيد", cancel = "إلغاء",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -92,6 +97,7 @@ data class Words(
                 failedSub = "The connection dropped before the sites answered.",
                 retry = "Try again", priceBySite = "The price, site by site", cheapest = "cheapest",
                 economy = "Economy", searchCity = "City or airport", noAirport = "No matching airport",
+                chooseDates = "Choose dates", confirm = "Confirm", cancel = "Cancel",
             )
         }
     }

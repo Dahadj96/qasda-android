@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -40,8 +40,7 @@ import pro.qasdatrip.core.SearchQuery
 
 /**
  * The search, in the order somebody fills it in: where from, where to, when,
- * and how many. Dates are typed as YYYY-MM-DD for now — the calendar is the
- * next screen to build, and a wrong date is worse than a plain field.
+ * and how many.
  */
 @Composable
 fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
@@ -50,10 +49,26 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
 
     var from by remember { mutableStateOf("ALG") }
     var to by remember { mutableStateOf("CDG") }
-    var depart by remember { mutableStateOf("") }
-    var back by remember { mutableStateOf("") }
+    var depart by remember { mutableStateOf<String?>(null) }
+    var back by remember { mutableStateOf<String?>(null) }
+    var roundTrip by remember { mutableStateOf(false) }
     var adults by remember { mutableStateOf(1) }
     var picking by remember { mutableStateOf<String?>(null) }
+    var pickingDates by remember { mutableStateOf(false) }
+
+    if (pickingDates) {
+        DatesDialog(
+            roundTrip = roundTrip,
+            depart = depart,
+            back = back,
+            onDismiss = { pickingDates = false },
+            onPick = { d, b ->
+                depart = d
+                back = if (roundTrip) b else null
+                pickingDates = false
+            },
+        )
+    }
 
     if (picking != null) {
         AirportPicker(
@@ -77,26 +92,24 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
         Text(words.heroTitle, style = MaterialTheme.typography.displaySmall)
         Text(words.heroSub, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
 
+        TripToggle(
+            roundTrip = roundTrip,
+            onChange = { wantsReturn ->
+                roundTrip = wantsReturn
+                // Switching to one way drops a return that is no longer part
+                // of the question being asked.
+                if (!wantsReturn) back = null
+            },
+        )
+
         Field(label = words.from, value = "${cityName(from, lang)} ($from)") { picking = "from" }
         Field(label = words.to, value = "${cityName(to, lang)} ($to)") { picking = "to" }
 
-        OutlinedTextField(
-            value = depart,
-            onValueChange = { depart = it },
-            label = { Text(words.dates) },
-            placeholder = { Text("2026-09-20") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions.Default,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = back,
-            onValueChange = { back = it },
-            label = { Text(words.inbound) },
-            placeholder = { Text("2026-09-27") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Field(
+            label = if (roundTrip) words.dates else words.outbound,
+            value = datesLabel(depart, back, roundTrip, lang, words.chooseDates),
+            muted = depart == null,
+        ) { pickingDates = true }
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
             Text(words.travellers, style = MaterialTheme.typography.bodyLarge)
@@ -108,14 +121,16 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
                 onSearch(
                     SearchQuery(
                         from = from, to = to,
-                        departDate = depart.trim(),
-                        returnDate = back.trim().ifBlank { null },
+                        departDate = depart.orEmpty(),
+                        returnDate = back.takeIf { roundTrip },
                         adults = adults,
                         cabin = Cabin.ECONOMY,
                     ),
                 )
             },
-            enabled = depart.isNotBlank() && from != to,
+            // A round trip without a return is half a question: the server
+            // would answer it as a one-way and quote the wrong thing.
+            enabled = depart != null && (!roundTrip || back != null) && from != to,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(Radius.sm),
             colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
@@ -124,7 +139,7 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
 }
 
 @Composable
-private fun Field(label: String, value: String, onClick: () -> Unit) {
+private fun Field(label: String, value: String, muted: Boolean = false, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -135,8 +150,66 @@ private fun Field(label: String, value: String, onClick: () -> Unit) {
             .padding(Space.s4),
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
-        Text(value, style = MaterialTheme.typography.titleMedium)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (muted) Ink.muted else Ink.ink,
+        )
     }
+}
+
+/**
+ * One way or return. Two words, and the difference between them decides
+ * whether the calendar asks for one date or two.
+ */
+@Composable
+private fun TripToggle(roundTrip: Boolean, onChange: (Boolean) -> Unit) {
+    val words = LocalWords.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(Ink.surfaceSoft)
+            .border(1.dp, Ink.lineStrong, RoundedCornerShape(Radius.pill))
+            .padding(Space.s1),
+        horizontalArrangement = Arrangement.spacedBy(Space.s1),
+    ) {
+        listOf(false to words.oneWay, true to words.roundTrip).forEach { (isReturn, label) ->
+            val on = isReturn == roundTrip
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .background(if (on) Ink.surface else Ink.surfaceSoft)
+                    .clickable { onChange(isReturn) }
+                    .padding(vertical = Space.s2),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (on) Ink.ink else Ink.inkSoft,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * What the dates field says before and after somebody has chosen. A round
+ * trip with no return yet still shows the departure, so the field reflects
+ * the half-answer rather than pretending nothing was picked.
+ */
+private fun datesLabel(
+    depart: String?,
+    back: String?,
+    roundTrip: Boolean,
+    lang: pro.qasdatrip.core.Lang,
+    placeholder: String,
+): String = when {
+    depart == null -> placeholder
+    roundTrip && back != null -> "${formatDate(depart, lang)} – ${formatDate(back, lang)}"
+    else -> formatDate(depart, lang)
 }
 
 @Composable

@@ -36,7 +36,8 @@ The debug build talks to `dev.qasdatrip.pro`; release talks to
 
 ## What works
 
-- Search: origin, destination, dates, travellers
+- Search: origin, destination, dates, travellers — one way or return, dates
+  picked from a calendar that will not offer a day that has already gone
 - Airport picker over the 213 curated airports, matching the way the site
   does — أدرار and ادرار are the same query, so are Séville and seville, and
   an airport answers to the commune the databases file it under
@@ -47,11 +48,10 @@ The debug build talks to `dev.qasdatrip.pro`; release talks to
 
 ## What is next, in order
 
-1. A real date picker — the dates are typed as `YYYY-MM-DD` today
-2. The flight details screen — baggage, fare conditions, aircraft, and the
+1. The flight details screen — baggage, fare conditions, aircraft, and the
    price site by site
-3. Recent searches, and the language switch inside the app
-4. Push: a notification when a seat appears is the tracking feature the web
+2. Recent searches, and the language switch inside the app
+3. Push: a notification when a seat appears is the tracking feature the web
    cannot ship yet, because a push needs no mail domain and no inbox
 
 ## House rules, same as the website
