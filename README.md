@@ -63,23 +63,36 @@ name. Back it up somewhere that is not this computer.
 
 ## What works
 
-- Search: origin, destination, dates, travellers — one way or return, dates
-  picked from a calendar that will not offer a day that has already gone
+- Search: origin, destination, dates, travellers and cabin — one way or
+  return, dates picked from a calendar that will not offer a day that has
+  already gone, and passenger limits that are the airlines' own
 - Airport picker over the 213 curated airports, matching the way the site
   does — أدرار and ادرار are the same query, so are Séville and seville, and
   an airport answers to the commune the databases file it under
 - Live results: the list fills in as each booking site answers, sorted by the
   cheapest price any site actually quoted
+- Filters and sorting over that list, without asking the server again. A
+  flight whose data is missing survives every filter rather than vanishing
 - The card: bag chip, seats chip, both legs, one price and the site quoting it
+- The details screen: both legs segment by segment, who actually flies each
+  one, baggage, fare conditions, and the price site by site
 - Book: opens the booking site. We do not sell tickets
+- Recent searches — the question kept, never the price
+- Help, in the website's own words and without a network
+- Language: the phone's until you choose, then yours, and it sticks
+- A line that says the connection is gone instead of a 25-second wait
 
 ## What is next, in order
 
-1. The flight details screen — baggage, fare conditions, aircraft, and the
-   price site by site
-2. Recent searches, and the language switch inside the app
-3. Push: a notification when a seat appears is the tracking feature the web
-   cannot ship yet, because a push needs no mail domain and no inbox
+1. Tracking: watch a route and a date, and be told when the price moves or a
+   seat appears. It needs alert endpoints on the server and, to be worth
+   having, a push — which is the feature the web cannot ship, because a push
+   needs no mail domain and no inbox
+2. The price calendar — the server already serves it
+3. iOS. The networking, the models, the matching, the filters and the words
+   are all in `core` already
+
+Shipping to Play is its own checklist: see [RELEASE.md](RELEASE.md).
 
 ## House rules, same as the website
 
