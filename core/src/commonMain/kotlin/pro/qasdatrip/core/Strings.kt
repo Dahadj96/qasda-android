@@ -54,6 +54,17 @@ data class Words(
     val nonChangeable: String,
     val feeApplies: String,         // {amount}
     val operatedBy: String,         // {airline}
+    val adults: String,
+    val adultsAge: String,
+    val children: String,
+    val childrenAge: String,
+    val infants: String,
+    val infantsAge: String,
+    val cabinClass: String,
+    val premium: String,
+    val business: String,
+    val first: String,
+    val apply: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -79,6 +90,11 @@ data class Words(
                 refundable = "Remboursable", nonRefundable = "Non remboursable",
                 changeable = "Modifiable", nonChangeable = "Non modifiable",
                 feeApplies = "{amount} de frais", operatedBy = "Opéré par {airline}",
+                adults = "Adultes", adultsAge = "12 ans et plus",
+                children = "Enfants", childrenAge = "2 – 11 ans",
+                infants = "Bébés", infantsAge = "moins de 2 ans",
+                cabinClass = "Classe de cabine", premium = "Économique premium",
+                business = "Affaires", first = "Première", apply = "Appliquer",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -102,6 +118,11 @@ data class Words(
                 refundable = "قابلة للاسترداد", nonRefundable = "غير قابلة للاسترداد",
                 changeable = "قابلة للتغيير", nonChangeable = "غير قابلة للتغيير",
                 feeApplies = "رسوم {amount}", operatedBy = "تشغيل {airline}",
+                adults = "البالغون", adultsAge = "12 سنة فما فوق",
+                children = "الأطفال", childrenAge = "2 – 11 سنة",
+                infants = "الرضّع", infantsAge = "أقل من سنتين",
+                cabinClass = "درجة السفر", premium = "اقتصادية بريميوم",
+                business = "رجال الأعمال", first = "الأولى", apply = "تطبيق",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -125,6 +146,11 @@ data class Words(
                 refundable = "Refundable", nonRefundable = "Non-refundable",
                 changeable = "Changeable", nonChangeable = "Not changeable",
                 feeApplies = "{amount} fee", operatedBy = "Operated by {airline}",
+                adults = "Adults", adultsAge = "12 and over",
+                children = "Children", childrenAge = "2 – 11",
+                infants = "Infants", infantsAge = "under 2",
+                cabinClass = "Cabin class", premium = "Premium economy",
+                business = "Business", first = "First", apply = "Apply",
             )
         }
     }
