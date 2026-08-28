@@ -69,6 +69,8 @@ fun QasdaNavHost(api: QasdaApi, lang: Lang, onLang: (Lang) -> Unit) {
                 onBook = { openBooking(it, null) },
                 onRetry = { vm.retry() },
                 onEdit = { nav.popBackStack() },
+                onFilters = { vm.filter(it) },
+                onSort = { vm.sortBy(it) },
             )
         }
         composable(DETAILS) {

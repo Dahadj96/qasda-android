@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pro.qasdatrip.core.Airlines
+import pro.qasdatrip.core.Filters
 import pro.qasdatrip.core.Flight
+import pro.qasdatrip.core.SortBy
 import pro.qasdatrip.core.QasdaApi
 import pro.qasdatrip.core.SearchEvent
 import pro.qasdatrip.core.SearchQuery
@@ -29,6 +31,8 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
         val running: Boolean = false,
         val failed: SearchEvent.Reason? = null,
         val selected: Flight? = null,
+        val filters: Filters = Filters(),
+        val sort: SortBy = SortBy.PRICE,
     ) {
         val empty: Boolean get() = !running && failed == null && query != null && flights.isEmpty()
     }
@@ -74,6 +78,12 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
 
     /** Which flight the details screen is looking at. */
     fun open(flight: Flight?) { _state.update { it.copy(selected = flight) } }
+
+    // Filters and ordering live here rather than in the screen so a rotation
+    // does not silently widen a search somebody narrowed.
+    fun filter(filters: Filters) { _state.update { it.copy(filters = filters) } }
+
+    fun sortBy(sort: SortBy) { _state.update { it.copy(sort = sort) } }
 
     suspend fun bookingUrl(flight: Flight, site: String): String? {
         val q = state.value.query ?: return null

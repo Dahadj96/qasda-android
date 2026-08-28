@@ -65,6 +65,22 @@ data class Words(
     val business: String,
     val first: String,
     val apply: String,
+    val filters: String,
+    val sortBy: String,
+    val sortPrice: String,
+    val sortDeparture: String,
+    val sortDuration: String,
+    val departureTime: String,
+    val morning: String,
+    val afternoon: String,
+    val evening: String,
+    val night: String,
+    val maxPrice: String,
+    val reset: String,
+    val showCount: String,          // {n}
+    val noMatchTitle: String,
+    val noMatchSub: String,
+    val stopsLabel: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -95,6 +111,14 @@ data class Words(
                 infants = "Bébés", infantsAge = "moins de 2 ans",
                 cabinClass = "Classe de cabine", premium = "Économique premium",
                 business = "Affaires", first = "Première", apply = "Appliquer",
+                filters = "Filtres", sortBy = "Trier", sortPrice = "Prix",
+                sortDeparture = "Départ", sortDuration = "Durée",
+                departureTime = "Heure de départ", morning = "Matin", afternoon = "Après-midi",
+                evening = "Soir", night = "Nuit", maxPrice = "Prix maximum",
+                reset = "Réinitialiser", showCount = "Voir {n} vols",
+                noMatchTitle = "Aucun vol ne correspond",
+                noMatchSub = "Élargissez les filtres pour voir plus de résultats.",
+                stopsLabel = "Escales",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -123,6 +147,14 @@ data class Words(
                 infants = "الرضّع", infantsAge = "أقل من سنتين",
                 cabinClass = "درجة السفر", premium = "اقتصادية بريميوم",
                 business = "رجال الأعمال", first = "الأولى", apply = "تطبيق",
+                filters = "عوامل التصفية", sortBy = "ترتيب", sortPrice = "السعر",
+                sortDeparture = "المغادرة", sortDuration = "المدة",
+                departureTime = "وقت المغادرة", morning = "صباحًا", afternoon = "بعد الظهر",
+                evening = "مساءً", night = "ليلًا", maxPrice = "السعر الأقصى",
+                reset = "إعادة الضبط", showCount = "عرض {n} رحلات",
+                noMatchTitle = "لا توجد رحلة مطابقة",
+                noMatchSub = "وسّع عوامل التصفية لرؤية نتائج أكثر.",
+                stopsLabel = "التوقفات",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -151,6 +183,14 @@ data class Words(
                 infants = "Infants", infantsAge = "under 2",
                 cabinClass = "Cabin class", premium = "Premium economy",
                 business = "Business", first = "First", apply = "Apply",
+                filters = "Filters", sortBy = "Sort", sortPrice = "Price",
+                sortDeparture = "Departure", sortDuration = "Duration",
+                departureTime = "Departure time", morning = "Morning", afternoon = "Afternoon",
+                evening = "Evening", night = "Night", maxPrice = "Maximum price",
+                reset = "Reset", showCount = "Show {n} flights",
+                noMatchTitle = "No flight matches",
+                noMatchSub = "Widen the filters to see more results.",
+                stopsLabel = "Stops",
             )
         }
     }
