@@ -42,6 +42,18 @@ data class Words(
     val chooseDates: String,
     val confirm: String,
     val cancel: String,
+    val cabinBag: String,
+    val checkedBag: String,
+    val bagUnknown: String,
+    val pieces: String,             // {n}
+    val kilos: String,              // {n}
+    val conditions: String,
+    val refundable: String,
+    val nonRefundable: String,
+    val changeable: String,
+    val nonChangeable: String,
+    val feeApplies: String,         // {amount}
+    val operatedBy: String,         // {airline}
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -62,6 +74,11 @@ data class Words(
                 retry = "Réessayer", priceBySite = "Le prix, site par site", cheapest = "le moins cher",
                 economy = "Économique", searchCity = "Ville ou aéroport", noAirport = "Aucun aéroport ne correspond",
                 chooseDates = "Choisir les dates", confirm = "Confirmer", cancel = "Annuler",
+                cabinBag = "Bagage cabine", checkedBag = "Bagage en soute", bagUnknown = "Non communiqué",
+                pieces = "{n} pièce(s)", kilos = "{n} kg", conditions = "Conditions du billet",
+                refundable = "Remboursable", nonRefundable = "Non remboursable",
+                changeable = "Modifiable", nonChangeable = "Non modifiable",
+                feeApplies = "{amount} de frais", operatedBy = "Opéré par {airline}",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -80,6 +97,11 @@ data class Words(
                 retry = "أعد المحاولة", priceBySite = "السعر، موقعًا بموقع", cheapest = "الأرخص",
                 economy = "اقتصادية", searchCity = "مدينة أو مطار", noAirport = "لا يوجد مطار مطابق",
                 chooseDates = "اختر التواريخ", confirm = "تأكيد", cancel = "إلغاء",
+                cabinBag = "حقيبة اليد", checkedBag = "حقيبة مسجلة", bagUnknown = "غير محدد",
+                pieces = "{n} قطعة", kilos = "{n} كغ", conditions = "شروط التذكرة",
+                refundable = "قابلة للاسترداد", nonRefundable = "غير قابلة للاسترداد",
+                changeable = "قابلة للتغيير", nonChangeable = "غير قابلة للتغيير",
+                feeApplies = "رسوم {amount}", operatedBy = "تشغيل {airline}",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -98,6 +120,11 @@ data class Words(
                 retry = "Try again", priceBySite = "The price, site by site", cheapest = "cheapest",
                 economy = "Economy", searchCity = "City or airport", noAirport = "No matching airport",
                 chooseDates = "Choose dates", confirm = "Confirm", cancel = "Cancel",
+                cabinBag = "Cabin bag", checkedBag = "Checked bag", bagUnknown = "Not stated",
+                pieces = "{n} piece(s)", kilos = "{n} kg", conditions = "Ticket conditions",
+                refundable = "Refundable", nonRefundable = "Non-refundable",
+                changeable = "Changeable", nonChangeable = "Not changeable",
+                feeApplies = "{amount} fee", operatedBy = "Operated by {airline}",
             )
         }
     }

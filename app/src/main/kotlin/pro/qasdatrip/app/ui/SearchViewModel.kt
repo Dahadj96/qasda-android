@@ -28,6 +28,7 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
         val flights: List<Flight> = emptyList(),
         val running: Boolean = false,
         val failed: SearchEvent.Reason? = null,
+        val selected: Flight? = null,
     ) {
         val empty: Boolean get() = !running && failed == null && query != null && flights.isEmpty()
     }
@@ -47,7 +48,16 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
                         Airlines.learn(event.flights)
                         val priced = event.flights.filter { it.cheapest != null }
                             .sortedBy { it.cheapest?.second ?: Double.MAX_VALUE }
-                        _state.update { it.copy(flights = priced) }
+                        _state.update { current ->
+                            // The list is re-sorted on every update, so a
+                            // position is not an identity. Re-find the open
+                            // flight by its id instead, and its details page
+                            // follows the price down as later sites answer.
+                            val stillOpen = current.selected?.let { open ->
+                                priced.firstOrNull { it.id != null && it.id == open.id } ?: open
+                            }
+                            current.copy(flights = priced, selected = stillOpen)
+                        }
                     }
                     SearchEvent.Done -> _state.update { it.copy(running = false) }
                     is SearchEvent.Failed -> _state.update {
@@ -62,8 +72,8 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
 
     fun retry() { state.value.query?.let(::search) }
 
-    fun flightById(id: String?): Flight? =
-        state.value.flights.firstOrNull { it.id == id } ?: state.value.flights.firstOrNull()
+    /** Which flight the details screen is looking at. */
+    fun open(flight: Flight?) { _state.update { it.copy(selected = flight) } }
 
     suspend fun bookingUrl(flight: Flight, site: String): String? {
         val q = state.value.query ?: return null
