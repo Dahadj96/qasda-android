@@ -123,6 +123,8 @@ fun SearchScreen(
         Text(words.heroTitle, style = MaterialTheme.typography.displaySmall)
         Text(words.heroSub, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
 
+        OfflineBanner()
+
         TripToggle(
             roundTrip = roundTrip,
             onChange = { wantsReturn ->

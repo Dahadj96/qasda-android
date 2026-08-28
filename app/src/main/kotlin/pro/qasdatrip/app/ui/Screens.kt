@@ -84,6 +84,7 @@ fun ResultsScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         SearchSummaryBar(state, onEdit)
+        OfflineBanner(modifier = Modifier.padding(horizontal = Space.s4, vertical = Space.s2))
 
         when {
             state.failed != null -> Message(

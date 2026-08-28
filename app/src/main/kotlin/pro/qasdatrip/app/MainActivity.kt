@@ -11,7 +11,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pro.qasdatrip.app.data.Settings
+import pro.qasdatrip.app.data.onlineFlow
+import pro.qasdatrip.app.ui.LocalOnline
 import pro.qasdatrip.app.ui.QasdaNavHost
 import pro.qasdatrip.app.ui.theme.QasdaTheme
 import pro.qasdatrip.core.Lang
@@ -29,11 +32,16 @@ class MainActivity : ComponentActivity() {
             var recent by remember { mutableStateOf(settings.recent) }
             val lang = chosen ?: Lang.of(resources.configuration.locales[0].language)
 
+            // True until the first reading arrives: a screen drawn before the
+            // system has answered should not accuse anybody of being offline.
+            val online by remember { onlineFlow() }.collectAsStateWithLifecycle(initialValue = true)
+
             QasdaTheme(lang) {
                 // Arabic mirrors the whole layout rather than a hand-written
                 // RTL sheet, which is why this wraps everything.
                 CompositionLocalProvider(
                     LocalLayoutDirection provides if (lang.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+                    LocalOnline provides online,
                 ) {
                     QasdaNavHost(
                         api = (application as QasdaApplication).api,
