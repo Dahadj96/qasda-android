@@ -34,6 +34,33 @@ already tested. That is the whole reason the module exists.
 The debug build talks to `dev.qasdatrip.pro`; release talks to
 `qasdatrip.pro`. Both are in `app/build.gradle.kts` and nowhere else.
 
+## Release builds
+
+`./gradlew :app:assembleRelease` works with no setup: it shrinks with R8 and
+signs with the debug key, which is installable for testing and which Play
+rejects outright — so a test build cannot become a real release by accident.
+
+A build meant for Play needs the upload keystore. Create it once, keep it
+somewhere it will survive this machine, and never commit it:
+
+```
+keytool -genkeypair -v -keystore qasda-upload.jks -alias qasda \
+        -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Then point `local.properties` at it — that file is git-ignored:
+
+```
+QASDA_KEYSTORE=C:/Users/you/keys/qasda-upload.jks
+QASDA_KEYSTORE_PASSWORD=...
+QASDA_KEY_ALIAS=qasda
+QASDA_KEY_PASSWORD=...
+```
+
+Losing this file is not recoverable. An app signed by a different key is a
+different app to Android, and the only way back is a new listing under a new
+name. Back it up somewhere that is not this computer.
+
 ## What works
 
 - Search: origin, destination, dates, travellers — one way or return, dates
