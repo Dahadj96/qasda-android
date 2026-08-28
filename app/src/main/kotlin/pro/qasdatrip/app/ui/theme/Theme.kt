@@ -58,14 +58,18 @@ private val LightColors = lightColorScheme(
 // the app stays light so nothing is unreadable.
 private val DarkColors = LightColors
 
-val Radius = object {
+// Named objects, not `val Radius = object { ... }`: the type of an anonymous
+// object only survives on a private or local declaration. On a public top-level
+// val Kotlin infers the supertype instead - Any - and every Radius.sm below
+// stops resolving. That is why the app module had never compiled.
+object Radius {
     val sm = 8.dp
     val md = 14.dp
     val lg = 20.dp
     val pill = 999.dp
 }
 
-val Space = object {
+object Space {
     val s1 = 4.dp; val s2 = 8.dp; val s3 = 12.dp; val s4 = 16.dp
     val s5 = 20.dp; val s6 = 24.dp; val s8 = 32.dp; val s10 = 40.dp
 }
