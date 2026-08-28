@@ -1,3 +1,23 @@
+import java.util.Properties
+
+// The API key is read from local.properties (git-ignored) rather than written
+// here. It is not a user secret - it identifies the client app, and anyone can
+// pull it out of an APK - but a key committed to the repo is a key that has to
+// be rotated in public when it changes, and it just changed once already when
+// the backend moved off the VPS.
+//
+// Put these in local.properties, which Android Studio already keeps out of git:
+//   QASDA_API_KEY_DEV=...
+//   QASDA_API_KEY_PROD=...
+// Without them the build still falls back to the placeholder, which the server
+// answers with 401 - a clear failure rather than a confusing one.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun qasdaKey(name: String): String =
+    localProps.getProperty(name) ?: System.getenv(name) ?: "dev-local-key-change-me"
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -18,13 +38,14 @@ android {
         // The same app-level key the web bundle carries. Not a user secret —
         // it identifies the client, and the server treats it that way.
         buildConfigField("String", "API_BASE", "\"https://qasdatrip.pro\"")
-        buildConfigField("String", "API_KEY", "\"dev-local-key-change-me\"")
+        buildConfigField("String", "API_KEY", "\"${qasdaKey("QASDA_API_KEY_PROD")}\"")
     }
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             buildConfigField("String", "API_BASE", "\"https://dev.qasdatrip.pro\"")
+            buildConfigField("String", "API_KEY", "\"${qasdaKey("QASDA_API_KEY_DEV")}\"")
         }
         release {
             isMinifyEnabled = true
