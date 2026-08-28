@@ -65,7 +65,6 @@ object Airports {
     }
 
     private fun score(a: Airport, q: String): Int {
-        if (a.iata.lowercase() == q) return 100
         var best = 0
         val cityNames = listOf(a.city.en, a.city.fr, a.city.ar)
         for (candidate in cityNames + a.alt) {
@@ -83,6 +82,18 @@ object Airports {
             }
             if (hit > 0) best = maxOf(best, hit - alias)
         }
+        // An exact code is strong evidence, not proof. Three letters that spell
+        // a code are just as often the first three letters of a city: "ora" is
+        // an airstrip in Argentina and the start of Oran, and somebody typing it
+        // into this app means Oran. So an exact code now ranks just BELOW a city
+        // that starts with the query instead of ending the contest outright.
+        //
+        // It still wins when the SAME airport matches both, which is what keeps
+        // "mad" on Madrid rather than handing it to Madinah.
+        if (a.iata.lowercase() == q) {
+            return if (best > 0) maxOf(best, EXACT_CODE) + CODE_AND_CITY else EXACT_CODE
+        }
+
         if (best >= 70) return best
         if (a.iata.lowercase().startsWith(q)) best = maxOf(best, 60)
         val name = fold(a.name)
@@ -90,6 +101,12 @@ object Airports {
         else if (name.contains(q)) best = maxOf(best, 20)
         return best
     }
+
+    /** Just under a city that starts with the query (80). See [score]. */
+    private const val EXACT_CODE = 78
+
+    /** Matching the code and the city beats matching either one alone. */
+    private const val CODE_AND_CITY = 25
 
     private val WORD_SPLIT = Regex("[\\s,'’\\-/()]+")
 }
