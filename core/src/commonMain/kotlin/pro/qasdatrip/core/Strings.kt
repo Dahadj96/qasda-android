@@ -81,6 +81,17 @@ data class Words(
     val noMatchTitle: String,
     val noMatchSub: String,
     val stopsLabel: String,
+    val navHome: String,
+    val navHelp: String,
+    val navSettings: String,
+    val about: String,
+    val language: String,
+    val systemLanguage: String,
+    val howItWorks: String,
+    val privacy: String,
+    val contactUs: String,
+    val openOnSite: String,
+    val version: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -119,6 +130,12 @@ data class Words(
                 noMatchTitle = "Aucun vol ne correspond",
                 noMatchSub = "Élargissez les filtres pour voir plus de résultats.",
                 stopsLabel = "Escales",
+                navHome = "Accueil", navHelp = "Aide", navSettings = "Réglages",
+                about = "À propos", language = "Langue",
+                systemLanguage = "Langue du téléphone",
+                howItWorks = "Comment ça marche", privacy = "Confidentialité",
+                contactUs = "Nous écrire", openOnSite = "Ouvrir sur le site",
+                version = "Version",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -155,6 +172,12 @@ data class Words(
                 noMatchTitle = "لا توجد رحلة مطابقة",
                 noMatchSub = "وسّع عوامل التصفية لرؤية نتائج أكثر.",
                 stopsLabel = "التوقفات",
+                navHome = "الرئيسية", navHelp = "مساعدة", navSettings = "الإعدادات",
+                about = "من نحن", language = "اللغة",
+                systemLanguage = "لغة الهاتف",
+                howItWorks = "كيف تعمل", privacy = "الخصوصية",
+                contactUs = "اكتب لنا", openOnSite = "افتح على الموقع",
+                version = "الإصدار",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -191,6 +214,12 @@ data class Words(
                 noMatchTitle = "No flight matches",
                 noMatchSub = "Widen the filters to see more results.",
                 stopsLabel = "Stops",
+                navHome = "Home", navHelp = "Help", navSettings = "Settings",
+                about = "About", language = "Language",
+                systemLanguage = "Phone language",
+                howItWorks = "How it works", privacy = "Privacy",
+                contactUs = "Write to us", openOnSite = "Open on the site",
+                version = "Version",
             )
         }
     }
