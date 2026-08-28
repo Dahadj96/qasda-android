@@ -1,6 +1,15 @@
 package pro.qasdatrip.core
 
-/** Everything a search needs, and nothing it does not. */
+import kotlinx.serialization.Serializable
+
+/**
+ * Everything a search needs, and nothing it does not.
+ *
+ * Serializable because a phone remembers the last few searches across
+ * launches, and the thing worth remembering is exactly this: the question,
+ * not the answer. Prices from last week are not worth keeping.
+ */
+@Serializable
 data class SearchQuery(
     val from: String,
     val to: String,
@@ -15,6 +24,7 @@ data class SearchQuery(
     val travellers: Int get() = adults + children + infants
 }
 
+@Serializable
 enum class Cabin(val wire: String) {
     ECONOMY("economy"), PREMIUM("premium"), BUSINESS("business"), FIRST("first");
 }

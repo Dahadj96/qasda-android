@@ -10,10 +10,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,13 +44,18 @@ import pro.qasdatrip.core.Airports
 import pro.qasdatrip.core.Cabin
 import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.SearchQuery
+import java.time.LocalDate
 
 /**
  * The search, in the order somebody fills it in: where from, where to, when,
  * and how many.
  */
 @Composable
-fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
+fun SearchScreen(
+    recent: List<SearchQuery> = emptyList(),
+    today: String = LocalDate.now().toString(),
+    onSearch: (SearchQuery) -> Unit,
+) {
     val words = LocalWords.current
     val lang = LocalLang.current
 
@@ -105,6 +116,7 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(Ink.canvas)
+            .verticalScroll(rememberScrollState())
             .padding(Space.s4),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
@@ -156,6 +168,72 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
             shape = RoundedCornerShape(Radius.sm),
             colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
         ) { Text(words.search, fontWeight = FontWeight.SemiBold) }
+
+        if (recent.isNotEmpty()) {
+            Text(words.recentSearches, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
+            recent.take(3).forEach { past ->
+                RecentRow(past, lang) {
+                    from = past.from
+                    to = past.to
+                    roundTrip = past.roundTrip
+                    adults = past.adults
+                    children = past.children
+                    infants = past.infants
+                    cabin = past.cabin
+
+                    // A trip whose date has gone is still a useful shortcut -
+                    // the route and the passengers are right - so it fills the
+                    // form and asks for a new date rather than searching a day
+                    // that has passed and coming back with nothing.
+                    val stillAhead = past.departDate >= today
+                    depart = past.departDate.takeIf { stillAhead }
+                    back = past.returnDate?.takeIf { stillAhead }
+                    if (stillAhead) onSearch(past)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A past search, as a shortcut. The price it found is deliberately not here:
+ * it was true on the day, and a stale number beside a route reads as a quote.
+ */
+@Composable
+private fun RecentRow(query: SearchQuery, lang: pro.qasdatrip.core.Lang, onPick: () -> Unit) {
+    val words = LocalWords.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.md))
+            .background(Ink.surface)
+            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
+            .clickable(onClick = onPick)
+            .padding(Space.s4),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s3),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "${cityName(query.from, lang)} → ${cityName(query.to, lang)}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                listOfNotNull(
+                    formatDate(query.departDate, lang),
+                    query.returnDate?.let { formatDate(it, lang) },
+                    Money.isolate(query.travellers.toString()) + " · " + cabinName(query.cabin, words),
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Ink.muted,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Ink.muted,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 

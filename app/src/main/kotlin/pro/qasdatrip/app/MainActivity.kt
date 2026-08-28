@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
             // on the site. Their choice then outlives the app being closed,
             // and null still means "follow the phone" rather than "French".
             var chosen by remember { mutableStateOf(settings.language) }
+            var recent by remember { mutableStateOf(settings.recent) }
             val lang = chosen ?: Lang.of(resources.configuration.locales[0].language)
 
             QasdaTheme(lang) {
@@ -41,6 +42,11 @@ class MainActivity : ComponentActivity() {
                         onLang = { picked ->
                             settings.language = picked
                             chosen = picked
+                        },
+                        recent = recent,
+                        onRemember = { query ->
+                            settings.remember(query)
+                            recent = settings.recent
                         },
                     )
                 }

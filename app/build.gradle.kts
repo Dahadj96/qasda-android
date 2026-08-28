@@ -110,6 +110,11 @@ android {
 dependencies {
     implementation(project(":core"))
 
+    // The app stores a few of core's own models on disk - the recent searches
+    // - so it needs the serialization runtime itself rather than borrowing
+    // core's, which is an implementation detail of that module.
+    implementation(libs.kotlinx.serialization.json)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
