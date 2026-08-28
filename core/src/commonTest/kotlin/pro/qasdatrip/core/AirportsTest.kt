@@ -38,7 +38,9 @@ class AirportSearchTest {
     private val sample = """
         [{"i":"AZR","c":{"en":"Adrar","fr":"Adrar","ar":"أدرار"},"n":"Touat Airport","a":["Touat"]},
          {"i":"ORN","c":{"en":"Oran","fr":"Oran","ar":"وهران"},"n":"Ahmed Ben Bella","a":["Es Senia"]},
-         {"i":"ORA","c":{"en":"Embarcacion","fr":"Embarcacion","ar":"إمباركاسيون"},"n":"Embarcacion","a":[]}]
+         {"i":"ORA","c":{"en":"Embarcacion","fr":"Embarcacion","ar":"إمباركاسيون"},"n":"Embarcacion","a":[]},
+         {"i":"MAD","c":{"en":"Madrid","fr":"Madrid","ar":"MADRID_AR"},"n":"Adolfo Suarez Madrid Barajas","a":[]},
+         {"i":"MED","c":{"en":"Madinah","fr":"Medine","ar":"MADINAH_AR"},"n":"Prince Mohammad Bin Abdulaziz","a":[]}]
     """.trimIndent()
 
     private fun load() = Airports.load(sample)
@@ -54,6 +56,15 @@ class AirportSearchTest {
         load()
         // "ora" is a code in Argentina and the start of Oran. Here, Oran wins.
         assertEquals("ORN", Airports.search("ora").first().iata)
+    }
+
+    @Test
+    fun `an exact code still wins when the same airport also matches the city`() {
+        load()
+        // The other half of the rule above. Lowering an exact code below a
+        // city prefix must not hand "mad" to Madinah: Madrid matches the code
+        // AND the city, and matching both is what beats matching one.
+        assertEquals("MAD", Airports.search("mad").first().iata)
     }
 
     @Test
