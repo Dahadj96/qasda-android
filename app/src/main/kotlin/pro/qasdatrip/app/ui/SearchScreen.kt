@@ -36,6 +36,7 @@ import pro.qasdatrip.app.ui.theme.Space
 import pro.qasdatrip.core.Airport
 import pro.qasdatrip.core.Airports
 import pro.qasdatrip.core.Cabin
+import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.SearchQuery
 
 /**
@@ -53,8 +54,26 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
     var back by remember { mutableStateOf<String?>(null) }
     var roundTrip by remember { mutableStateOf(false) }
     var adults by remember { mutableStateOf(1) }
+    var children by remember { mutableStateOf(0) }
+    var infants by remember { mutableStateOf(0) }
+    var cabin by remember { mutableStateOf(Cabin.ECONOMY) }
     var picking by remember { mutableStateOf<String?>(null) }
     var pickingDates by remember { mutableStateOf(false) }
+    var pickingTravellers by remember { mutableStateOf(false) }
+
+    if (pickingTravellers) {
+        TravellersPicker(
+            adults = adults,
+            children = children,
+            infants = infants,
+            cabin = cabin,
+            onApply = { a, c, i, klass ->
+                adults = a; children = c; infants = i; cabin = klass
+                pickingTravellers = false
+            },
+        )
+        return
+    }
 
     if (pickingDates) {
         DatesDialog(
@@ -111,10 +130,10 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
             muted = depart == null,
         ) { pickingDates = true }
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
-            Text(words.travellers, style = MaterialTheme.typography.bodyLarge)
-            Stepper(value = adults, onChange = { adults = it.coerceIn(1, 9) })
-        }
+        Field(
+            label = words.travellers,
+            value = "${Money.isolate((adults + children + infants).toString())} · ${cabinName(cabin, words)}",
+        ) { pickingTravellers = true }
 
         Button(
             onClick = {
@@ -124,7 +143,9 @@ fun SearchScreen(onSearch: (SearchQuery) -> Unit) {
                         departDate = depart.orEmpty(),
                         returnDate = back.takeIf { roundTrip },
                         adults = adults,
-                        cabin = Cabin.ECONOMY,
+                        children = children,
+                        infants = infants,
+                        cabin = cabin,
                     ),
                 )
             },
@@ -212,21 +233,11 @@ private fun datesLabel(
     else -> formatDate(depart, lang)
 }
 
-@Composable
-private fun Stepper(value: Int, onChange: (Int) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.s3)) {
-        Button(
-            onClick = { onChange(value - 1) },
-            shape = RoundedCornerShape(Radius.pill),
-            colors = ButtonDefaults.buttonColors(containerColor = Ink.surfaceSoft, contentColor = Ink.ink),
-        ) { Text("−") }
-        Text(value.toString(), style = MaterialTheme.typography.titleMedium)
-        Button(
-            onClick = { onChange(value + 1) },
-            shape = RoundedCornerShape(Radius.pill),
-            colors = ButtonDefaults.buttonColors(containerColor = Ink.surfaceSoft, contentColor = Ink.ink),
-        ) { Text("+") }
-    }
+private fun cabinName(cabin: Cabin, words: pro.qasdatrip.core.Words): String = when (cabin) {
+    Cabin.ECONOMY -> words.economy
+    Cabin.PREMIUM -> words.premium
+    Cabin.BUSINESS -> words.business
+    Cabin.FIRST -> words.first
 }
 
 /**
