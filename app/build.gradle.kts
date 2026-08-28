@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 
 // The API key is read from local.properties (git-ignored) rather than written
@@ -17,6 +18,29 @@ val localProps = Properties().apply {
 }
 fun qasdaKey(name: String): String =
     localProps.getProperty(name) ?: System.getenv(name) ?: "dev-local-key-change-me"
+
+// The upload keystore and its passwords, by the same route and for a stronger
+// reason: these ARE secrets. Whoever holds this file can publish an update
+// that every existing install accepts as ours, and it cannot be rotated - an
+// app signed by a different key is a different app to Android, and the only
+// way back is a new listing.
+//
+//   QASDA_KEYSTORE=C:/Users/you/keys/qasda-upload.jks
+//   QASDA_KEYSTORE_PASSWORD=...
+//   QASDA_KEY_ALIAS=qasda
+//   QASDA_KEY_PASSWORD=...
+//
+// With no keystore configured, a release build still runs and still shrinks -
+// it just comes out unsigned, which is what a CI runner wants anyway. It is
+// only installing on a phone or uploading to Play that needs the signature.
+val keystoreFile: File? = (localProps.getProperty("QASDA_KEYSTORE") ?: System.getenv("QASDA_KEYSTORE"))
+    ?.let { path -> File(path).takeIf(File::isAbsolute) ?: rootProject.file(path) }
+    ?.takeIf(File::exists)
+
+fun qasdaSecret(name: String): String =
+    localProps.getProperty(name)
+        ?: System.getenv(name)
+        ?: error("$name is required to sign a release build. See app/build.gradle.kts.")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -41,6 +65,17 @@ android {
         buildConfigField("String", "API_KEY", "\"${qasdaKey("QASDA_API_KEY_PROD")}\"")
     }
 
+    signingConfigs {
+        if (keystoreFile != null) {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = qasdaSecret("QASDA_KEYSTORE_PASSWORD")
+                keyAlias = qasdaSecret("QASDA_KEY_ALIAS")
+                keyPassword = qasdaSecret("QASDA_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -51,6 +86,12 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // With no upload keystore configured, fall back to the debug key
+            // so a minified build can still be installed and exercised - which
+            // is the only way to find out whether R8 broke anything. Play
+            // rejects a debug-signed upload outright, so this cannot quietly
+            // become a real release.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
