@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
  * watch attached to it would either fire on nothing or go silent forever.
  * What lasts is "Alger to Paris on the 12th", and that is what gets watched.
  *
- * There are no accounts anywhere in here. An address, a confirmation link,
- * and a signed URL to manage everything afterwards is the whole model.
+ * There are no accounts anywhere in here, and — since the app took tracking
+ * over — no address either. The install registers itself and is the channel.
  */
 @Serializable
 data class Watch(
@@ -25,12 +25,28 @@ data class Watch(
     val adults: Int = 1,
     val children: Int = 0,
     val infants: Int = 0,
+    /** "price" — cheaper than what I saw. "seat" — this date was sold out. */
+    val kind: String = "price",
     @SerialName("target_price") val targetPrice: Double? = null,
     @SerialName("baseline_price") val baselinePrice: Double? = null,
+    /**
+     * The number that was on screen when this watch was made.
+     *
+     * Not the same as the baseline, which is whatever the server last
+     * scanned. Somebody who watched because THEY saw 69 654 is owed a message
+     * when it beats 69 654 — not when it beats a figure they never saw.
+     */
+    @SerialName("seen_price") val seenPrice: Double? = null,
     @SerialName("last_notified_at") val lastNotifiedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
 ) {
     val roundTrip: Boolean get() = !returnDate.isNullOrBlank()
+
+    /** Watching for a seat to come back, rather than for a price to fall. */
+    val watchingSeats: Boolean get() = kind == "seat"
+
+    /** What this watch is measured against, in the person's own terms. */
+    val reference: Double? get() = seenPrice ?: targetPrice ?: baselinePrice
 
     /** The search this watch is about, so tapping it can re-run it. */
     fun asQuery(): SearchQuery = SearchQuery(
@@ -50,7 +66,65 @@ data class Watch(
 data class WatchCreated(
     val created: Boolean = false,
     val needsConfirmation: Boolean = true,
+    val kind: String = "price",
 )
+
+/**
+ * This install, as something the server can send to.
+ *
+ * The whole credential, and there is nothing else: an opaque id the server
+ * minted, the numeric watcher it maps to, and a signature over that watcher.
+ * It is not a login and it identifies nothing about the phone — two installs
+ * on one handset get two unrelated ids. It is kept on the device because
+ * losing it loses the watches, and that is the honest price of never having
+ * asked anybody for an account.
+ */
+@Serializable
+data class DeviceKey(
+    val deviceId: String,
+    val watcherId: Long,
+    val signature: String,
+) {
+    /** The same pair the listing and cancel endpoints already speak. */
+    fun asManageKey(): ManageKey = ManageKey(watcherId, signature)
+}
+
+/**
+ * One message we have sent, or are about to.
+ *
+ * The server does not keep an unread flag and this does not have one. Whether
+ * a phone has shown a notification is the phone's business; the moment that
+ * is stored on a server it becomes a record of what somebody has read.
+ *
+ * `delivered` is about our queue, not about the person: false means the row
+ * has not drained yet, which on a phone is the same news a minute early.
+ */
+@Serializable
+data class Alert(
+    val id: Long,
+    val watchId: Long,
+    /** "price" or "seat" — why this arrived. */
+    val kind: String = "price",
+    val origin: String = "",
+    val destination: String = "",
+    val departDate: String? = null,
+    val returnDate: String? = null,
+    val price: Double? = null,
+    val previousPrice: Double? = null,
+    /** When the price was observed, not when the queue drained. */
+    val at: String? = null,
+    val delivered: Boolean = false,
+) {
+    val seat: Boolean get() = kind == "seat"
+
+    /** How much was saved against what this person was comparing with. */
+    val saved: Double?
+        get() {
+            val before = previousPrice ?: return null
+            val now = price ?: return null
+            return (before - now).takeIf { it > 0 }
+        }
+}
 
 /**
  * The link that comes in the confirmation email, taken apart.

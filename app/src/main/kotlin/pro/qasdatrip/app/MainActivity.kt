@@ -64,6 +64,11 @@ class MainActivity : ComponentActivity() {
                             settings.manageKey = key
                             manageKey = key
                         },
+                        // Read on demand rather than hoisted into state: the
+                        // key is written once, from a background coroutine,
+                        // and nothing on screen re-draws when it changes.
+                        readDevice = { settings.deviceKey },
+                        onDeviceKey = { settings.deviceKey = it },
                     )
                 }
             }

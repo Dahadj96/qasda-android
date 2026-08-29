@@ -61,12 +61,11 @@ fun TrackingScreen(
     state: TrackingViewModel.State,
     onOpen: (Watch) -> Unit,
     onStop: (Long) -> Unit,
-    onLink: (String) -> Boolean,
     onNew: () -> Unit,
+    onNotifications: () -> Unit = {},
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
-    var pasting by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         LazyColumn(
@@ -81,7 +80,19 @@ fun TrackingScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(words.myTracking, style = MaterialTheme.typography.displaySmall)
-                    if (state.loading) {
+                    Text(
+                        words.notificationsTitle,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Ink.accentDeep,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Radius.pill))
+                            .clickable(onClick = onNotifications)
+                            .padding(horizontal = Space.s2, vertical = Space.s1),
+                    )
+                    // Registering counts as loading here: until the install
+                    // has an identity there is nothing to list, and a bare
+                    // empty state would read as "you have no alerts".
+                    if (state.loading || state.registering) {
                         CircularProgressIndicator(strokeWidth = 2.dp, color = Ink.accentDeep, modifier = Modifier.size(20.dp))
                     }
                 }
@@ -128,46 +139,30 @@ fun TrackingScreen(
                 ) { Text(words.newTracking) }
             }
 
-            // The way back in on a phone that has the alerts but not the link:
-            // a new install, a second handset, a link opened in a browser.
-            if (state.key == null || state.keyRejected) {
-                item {
-                    if (pasting) {
-                        PasteLink(onLink = { url -> if (onLink(url)) pasting = false })
-                    } else {
-                        OutlinedButton(
-                            onClick = { pasting = true },
-                            shape = RoundedCornerShape(Radius.pill),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text(words.openManageLink) }
-                    }
-                }
-            }
+            // There is no "paste your manage link" box any more.
+            //
+            // It existed because alerts belonged to a mailbox and a phone had
+            // no way to prove which mailbox it was. This install registers
+            // itself, so it always knows which watches are its own. A link
+            // tapped in an older alert email still lands here — the deep link
+            // declared on this destination handles it — but asking somebody to
+            // find and paste a URL was never a thing to put in front of them,
+            // and now it is not needed at all.
         }
     }
 }
 
 @Composable
-private fun PasteLink(onLink: (String) -> Unit) {
-    val words = LocalWords.current
-    var url by remember { mutableStateOf("") }
-    Column(verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-        OutlinedTextField(
-            value = url,
-            onValueChange = { url = it },
-            label = { Text(words.pasteManageLink) },
-            singleLine = true,
-            shape = RoundedCornerShape(Radius.md),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(
-            onClick = { onLink(url) },
-            enabled = url.isNotBlank(),
-            shape = RoundedCornerShape(Radius.pill),
-            colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(words.confirm) }
-    }
+private fun Panel(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.md))
+            .background(Ink.surface)
+            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
+            .padding(Space.s4),
+        verticalArrangement = Arrangement.spacedBy(Space.s2),
+    ) { content() }
 }
 
 @Composable
@@ -194,21 +189,29 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = Ink.muted,
         )
-        // What the watch is measured against, and only when the server has
-        // one. No number here is a price we are quoting now — re-running the
-        // search is the only thing that can say what it costs today.
-        watch.baselinePrice?.let {
+        // The rule, in the sentence somebody would use to describe it — not
+        // two numbers labelled "baseline" and "target" that mean nothing
+        // without the code that reads them.
+        //
+        // No number here is a price we are quoting now. It is what this watch
+        // is measured against, and re-running the search is the only thing
+        // that can say what the route costs today.
+        Text(
+            text = when {
+                watch.watchingSeats -> words.watchingSeat
+                watch.reference != null ->
+                    words.watchingPrice.replace("{price}", Money.format(watch.reference!!, lang))
+                else -> words.noTrackingSub
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (watch.watchingSeats) Ink.notice else Ink.accentDeep,
+            modifier = Modifier.padding(top = Space.s1),
+        )
+        watch.seenPrice?.let {
             Text(
-                words.whenYouSubscribed.replace("{price}", Money.format(it, lang)),
+                words.seenAtSearch.replace("{price}", Money.format(it, lang)),
                 style = MaterialTheme.typography.labelSmall,
                 color = Ink.muted,
-            )
-        }
-        watch.targetPrice?.let {
-            Text(
-                words.targetSet.replace("{price}", Money.format(it, lang)),
-                style = MaterialTheme.typography.labelSmall,
-                color = Ink.accentDeep,
             )
         }
         Row(
