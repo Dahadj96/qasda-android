@@ -33,17 +33,30 @@ the signing key and this one only authorises uploads — and it is worth doing.
 
 ---
 
-## 2. Prove the release build works — the untested risk
+## 2. Prove the shrunk build works
 
-R8 is enabled. `assembleRelease` succeeds and R8 reports no missing rules,
-but **nothing has ever run the minified build**. Ktor and
-kotlinx-serialization under R8 is the classic failure that works in debug and
-dies on the first API call.
+R8 is enabled, and a minified build has now been run on hardware: a Redmi
+Note 13 Pro on 29 August returned sixteen flights from a real search with no
+`ClassNotFound`, no missing serializer, nothing. **Ktor and
+kotlinx-serialization survive R8 with the keep rules in `proguard-rules.pro`.**
+
+Re-run it whenever those rules, the dependencies or the models change — it is
+the check that catches the classic failure that works in debug and dies on the
+first API call in release:
 
 ```
-gradlew :app:assembleRelease
-adb install -r app\build\outputs\apk\release\app-release.apk
+gradlew :app:assembleStaging
+adb install -r app\build\outputs\apk\staging\app-staging.apk
 ```
+
+`staging` is `release` in every respect R8 can see, pointed at
+`dev.qasdatrip.pro` so it can be exercised against a server that is not
+production. Use it rather than `release` for this: a release build aimed at a
+domain that is down proves nothing.
+
+Note that Xiaomi devices refuse Gradle's installer with
+`INSTALL_FAILED_USER_RESTRICTED` unless *Install via USB* is on in Developer
+options; plain `adb install -r` works either way.
 
 On the phone, in order:
 

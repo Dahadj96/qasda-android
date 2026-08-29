@@ -93,6 +93,30 @@ android {
             // become a real release.
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
+
+        // R8 is the difference between a build that works and a build that
+        // ships, and the only way to know which one you have is to run it.
+        //
+        // This is `release` in every respect R8 can see - it copies it, so
+        // the same minification, shrinking and keep rules apply - and points
+        // at dev, so the shrunk app can be exercised against a server that
+        // exists. The real domain spent the day serving a parked-domain page,
+        // which is exactly the kind of thing that makes a release-build test
+        // meaningless when it is the only environment you can aim at.
+        //
+        // Declared after `release` on purpose: initWith copies the block as
+        // it stands, and the minification above is set inside it. Moved
+        // earlier, this would silently copy an unminified release and prove
+        // nothing at all.
+        //
+        // It cannot become a shipped build: the applicationId ends .staging.
+        create("staging") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".staging"
+            matchingFallbacks += listOf("release")
+            buildConfigField("String", "API_BASE", "\"https://dev.qasdatrip.pro\"")
+            buildConfigField("String", "API_KEY", "\"${qasdaKey("QASDA_API_KEY_DEV")}\"")
+        }
     }
 
     buildFeatures {
