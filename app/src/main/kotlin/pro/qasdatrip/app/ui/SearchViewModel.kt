@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import pro.qasdatrip.core.Airlines
 import pro.qasdatrip.core.Filters
 import pro.qasdatrip.core.Flight
+import pro.qasdatrip.core.FlightCalendar
 import pro.qasdatrip.core.SortBy
 import pro.qasdatrip.core.QasdaApi
 import pro.qasdatrip.core.SearchEvent
@@ -33,6 +34,8 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
         val selected: Flight? = null,
         val filters: Filters = Filters(),
         val sort: SortBy = SortBy.PRICE,
+        val calendar: FlightCalendar? = null,
+        val calendarLoading: Boolean = false,
     ) {
         val empty: Boolean get() = !running && failed == null && query != null && flights.isEmpty()
     }
@@ -84,6 +87,26 @@ class SearchViewModel(private val api: QasdaApi) : ViewModel() {
     fun filter(filters: Filters) { _state.update { it.copy(filters = filters) } }
 
     fun sortBy(sort: SortBy) { _state.update { it.copy(sort = sort) } }
+
+    /**
+     * Fetch the surrounding week's prices, once per search.
+     *
+     * Kept if it has already been loaded for this search: it takes the server
+     * the better part of a minute, and a screen somebody opens twice should
+     * not pay for it twice.
+     */
+    fun loadCalendar() {
+        val query = state.value.query ?: return
+        if (state.value.calendar != null || state.value.calendarLoading) return
+        _state.update { it.copy(calendarLoading = true) }
+        calendarJob?.cancel()
+        calendarJob = viewModelScope.launch {
+            val result = api.calendar(query)
+            _state.update { it.copy(calendar = result, calendarLoading = false) }
+        }
+    }
+
+    private var calendarJob: Job? = null
 
     suspend fun bookingUrl(flight: Flight, site: String): String? {
         val q = state.value.query ?: return null

@@ -97,6 +97,22 @@ class QasdaApi(
     }
 
     /**
+     * What the route costs on the days around this one.
+     *
+     * Slow on purpose - the server is asking four sites about a week, not a
+     * day - so the screen that calls it has to say it is working. Failure
+     * returns null rather than throwing: a calendar is a helpful extra, and
+     * losing it should never take a search down with it.
+     */
+    suspend fun calendar(q: SearchQuery): FlightCalendar? = runCatching {
+        val envelope: Envelope<FlightCalendar> = client.get("$baseUrl/api/v1/flights/calendar") {
+            identify()
+            searchParams(q)
+        }.body()
+        envelope.data
+    }.getOrNull()
+
+    /**
      * Where to send somebody who chose a site. We do not sell tickets — the
      * booking and the payment happen there, and this is the door.
      */
