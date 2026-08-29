@@ -4,11 +4,13 @@ import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,8 +18,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -36,6 +41,7 @@ import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.Lang
+import pro.qasdatrip.core.ManageKey
 import pro.qasdatrip.core.QasdaApi
 import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.Words
@@ -47,10 +53,14 @@ private const val CALENDAR = "calendar"
 private const val HELP = "help"
 private const val SETTINGS = "settings"
 private const val ABOUT = "about"
+private const val TRACKING = "tracking"
+private const val TRACK_NEW = "track-new"
+private const val TRACK_HISTORY = "track-history"
 
 /** The destinations the bar can reach. Results and details are inside the search one. */
 private enum class Tab(val route: String, val label: (Words) -> String) {
     HOME(SEARCH, { it.navHome }),
+    TRACKING_TAB(TRACKING, { it.navTracking }),
     HELP_TAB(HELP, { it.navHelp }),
     SETTINGS_TAB(SETTINGS, { it.navSettings }),
 }
@@ -58,6 +68,7 @@ private enum class Tab(val route: String, val label: (Words) -> String) {
 @Composable
 private fun TabIcon(tab: Tab) = when (tab) {
     Tab.HOME -> Icon(Icons.Filled.Home, contentDescription = null)
+    Tab.TRACKING_TAB -> Icon(Icons.Filled.Notifications, contentDescription = null)
     // Material core ships Info but no question mark, and this tab is help
     // rather than about.
     Tab.HELP_TAB -> Icon(painterResource(R.drawable.ic_help), contentDescription = null)
@@ -72,6 +83,11 @@ fun QasdaNavHost(
     onLang: (Lang?) -> Unit,
     recent: List<SearchQuery> = emptyList(),
     onRemember: (SearchQuery) -> Unit = {},
+    manageKey: ManageKey? = null,
+    onManageKey: (ManageKey?) -> Unit = {},
+    /** A manage link the app was opened with, handled once and then cleared. */
+    openedWith: String? = null,
+    onOpenedWithHandled: () -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -83,6 +99,28 @@ fun QasdaNavHost(
         override fun <T : ViewModel> create(modelClass: Class<T>): T = SearchViewModel(api) as T
     })
     val state by vm.state.collectAsStateWithLifecycle()
+
+    val tracking: TrackingViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            TrackingViewModel(api, readKey = { manageKey }, writeKey = onManageKey) as T
+    })
+    val trackState by tracking.state.collectAsStateWithLifecycle()
+
+    // A tapped "manage my alerts" link out of the confirmation email. Handled
+    // once and then cleared, so rotating the phone does not send it through
+    // again and re-navigate underneath somebody.
+    LaunchedEffect(openedWith) {
+        val url = openedWith ?: return@LaunchedEffect
+        if (tracking.useLink(url)) {
+            nav.navigate(TRACKING) {
+                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+        onOpenedWithHandled()
+    }
 
     // Choosing a site leaves the app: we do not sell tickets, and the booking
     // and the payment happen on the site somebody chose.
@@ -120,7 +158,20 @@ fun QasdaNavHost(
         containerColor = Ink.canvas,
         bottomBar = {
             if (onTopLevel) {
-                NavigationBar(containerColor = Ink.surface) {
+                NavigationBar(
+                    containerColor = Ink.surface,
+                    tonalElevation = 0.dp,
+                    // 74dp with a hairline on top, as drawn. Material's
+                    // default is 80 and shadowed, which floats the bar off
+                    // a flat paper design.
+                    modifier = Modifier
+                        .drawBehind {
+                            drawRect(
+                                color = Ink.line,
+                                size = androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx()),
+                            )
+                        },
+                ) {
                     Tab.entries.forEach { tab ->
                         val selected = here?.hierarchy?.any { it.route == tab.route } == true
                         NavigationBarItem(
@@ -135,7 +186,14 @@ fun QasdaNavHost(
                                 }
                             },
                             icon = { TabIcon(tab) },
-                            label = { Text(tab.label(words)) },
+                            label = {
+                                Text(
+                                    tab.label(words),
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    ),
+                                )
+                            },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Ink.accentDeep,
                                 selectedTextColor = Ink.accentDeep,
@@ -184,6 +242,10 @@ fun QasdaNavHost(
                         nav.navigate(CALENDAR)
                     },
                     onPickDate = { depart, back -> searchDate(depart, back) },
+                    onTrack = {
+                        tracking.resetForm()
+                        nav.navigate(TRACK_NEW)
+                    },
                 )
             }
             composable(CALENDAR) {
@@ -212,6 +274,88 @@ fun QasdaNavHost(
                         flight = flight,
                         onBook = { site -> openBooking(flight, site) },
                         onBack = { nav.popBackStack() },
+                        onTrack = {
+                            tracking.resetForm()
+                            nav.navigate(TRACK_NEW)
+                        },
+                    )
+                }
+            }
+            composable(TRACKING) {
+                // Re-read on every visit: a watch cancelled from a laptop must
+                // not still be listed here.
+                LaunchedEffect(Unit) { tracking.refresh() }
+                TrackingScreen(
+                    state = trackState,
+                    onOpen = { watch ->
+                        tracking.open(watch)
+                        nav.navigate(TRACK_HISTORY)
+                    },
+                    onStop = { tracking.stop(it) },
+                    onLink = { url -> tracking.useLink(url) },
+                    onNew = {
+                        tracking.resetForm()
+                        nav.navigate(TRACK_NEW)
+                    },
+                )
+            }
+            composable(TRACK_NEW) {
+                // A watch is about a route and a date, so it needs one. The
+                // last search is the question somebody just asked; with none
+                // at all there is nothing to watch and the search screen is
+                // the honest place to send them.
+                val query = state.query ?: recent.firstOrNull()
+                if (query == null) {
+                    LaunchedEffect(Unit) {
+                        nav.popBackStack()
+                        nav.navigate(SEARCH) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                } else {
+                    TrackScreen(
+                        query = query,
+                        currentCheapest = state.flights.mapNotNull { it.cheapest?.second }.minOrNull()
+                            ?.takeIf { state.query == query },
+                        state = trackState,
+                        onCreate = { email, target ->
+                            tracking.create(query, email, lang.tag, target)
+                        },
+                        onDone = {
+                            tracking.resetForm()
+                            nav.popBackStack()
+                        },
+                        onBack = { nav.popBackStack() },
+                    )
+                }
+            }
+            composable(TRACK_HISTORY) {
+                val watch = trackState.openWatch
+                if (watch == null) {
+                    LaunchedEffect(Unit) { nav.popBackStack() }
+                } else {
+                    PriceHistoryScreen(
+                        watch = watch,
+                        trend = trackState.trend,
+                        loading = trackState.trendLoading,
+                        onSearch = {
+                            val query = watch.asQuery()
+                            onRemember(query)
+                            vm.search(query)
+                            tracking.closeWatch()
+                            nav.navigate(RESULTS)
+                        },
+                        onStop = {
+                            tracking.stop(watch.id)
+                            tracking.closeWatch()
+                            nav.popBackStack()
+                        },
+                        onBack = {
+                            tracking.closeWatch()
+                            nav.popBackStack()
+                        },
                     )
                 }
             }

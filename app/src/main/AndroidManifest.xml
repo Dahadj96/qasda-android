@@ -17,18 +17,30 @@
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Qasda">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- A shared qasdatrip.pro search link opens the app on that search. -->
+            <!--
+                A shared qasdatrip.pro search link, and the "manage my alerts"
+                link out of a confirmation email, open the app.
+
+                autoVerify only takes effect once /.well-known/assetlinks.json
+                is served from each host with this app's signing fingerprint.
+                Until then Android hands these links to the browser, which is
+                why the tracking screen can also take a pasted link — see
+                RELEASE.md.
+            -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="qasdatrip.pro" />
+                <data android:scheme="https" android:host="www.qasdatrip.pro" />
+                <data android:scheme="https" android:host="dev.qasdatrip.pro" />
             </intent-filter>
         </activity>
     </application>

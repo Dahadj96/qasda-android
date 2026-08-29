@@ -8,25 +8,31 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,18 +42,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import pro.qasdatrip.app.R
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalLang
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
 import pro.qasdatrip.core.Airports
+import pro.qasdatrip.core.Cabin
 import pro.qasdatrip.core.Filters
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.FlightList
 import pro.qasdatrip.core.Money
+import pro.qasdatrip.core.SearchQuery
+import pro.qasdatrip.core.TimeBand
+import pro.qasdatrip.core.Words
 import pro.qasdatrip.core.SearchEvent
 import pro.qasdatrip.core.SortBy
 
@@ -68,6 +82,7 @@ fun ResultsScreen(
     onSort: (SortBy) -> Unit = {},
     onCalendar: () -> Unit = {},
     onPickDate: (depart: String, back: String?) -> Unit = { _, _ -> },
+    onTrack: () -> Unit = {},
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
@@ -105,6 +120,22 @@ fun ResultsScreen(
         }
         OfflineBanner(modifier = Modifier.padding(horizontal = Space.s4, vertical = Space.s2))
 
+        // The rail stays put while the list scrolls. Filters that scroll away
+        // with the results are filters people stop finding, and the count
+        // beside them is the one number worth keeping on screen.
+        if (state.failed == null && !state.empty) {
+            ControlsRow(
+                filters = state.filters,
+                onOpenFilters = { sheetOpen = true },
+                onFilters = onFilters,
+                onCalendar = onCalendar,
+                onTrack = onTrack,
+            )
+            Spacer(modifier = Modifier.height(Space.s3))
+            SortRow(shown = shown, running = state.running, sort = state.sort, onSort = onSort)
+            Spacer(modifier = Modifier.height(Space.s2))
+        }
+
         when {
             state.failed != null -> Message(
                 title = if (state.failed == SearchEvent.Reason.CONNECTION) words.failedTitle else words.failedTitle,
@@ -128,12 +159,11 @@ fun ResultsScreen(
             // the three seconds before the first site answers.
             state.running && shown.isEmpty() -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(Space.s4),
-                verticalArrangement = Arrangement.spacedBy(Space.s3),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = Space.s4, end = Space.s4, bottom = Space.s4,
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item {
-                    Text(words.comparing, style = MaterialTheme.typography.titleMedium)
-                }
                 items(SkeletonCount) { SkeletonCard() }
             }
 
@@ -149,52 +179,28 @@ fun ResultsScreen(
 
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(Space.s4),
-                verticalArrangement = Arrangement.spacedBy(Space.s3),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = Space.s4, end = Space.s4, bottom = Space.s4,
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        // While sites are still answering the honest headline
-                        // is what we are doing, with the count as a running
-                        // total beside it. "15 flights" over a list that is
-                        // about to become 30 reads as a finished answer.
-                        Text(
-                            if (state.running) words.comparing
-                            else words.resultsCount.replace("{n}", Money.isolate(shown.size.toString())),
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (state.running) {
-                            Text(
-                                words.offersSoFar.replace("{n}", Money.isolate(shown.size.toString())),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Ink.accentDeep,
-                                modifier = Modifier.padding(start = Space.s3),
-                            )
-                        }
-                    }
-                }
-                item {
-                    ControlsRow(
-                        filters = state.filters,
-                        sort = state.sort,
-                        onOpenFilters = { sheetOpen = true },
-                        onSort = onSort,
-                        onCalendar = onCalendar,
-                    )
-                }
                 // The position is part of the key on purpose. Two sites can hand
                 // back the same flight id for the same leg, and a LazyColumn throws
                 // if a key repeats — a duplicate upstream must never crash the list.
                 itemsIndexed(
                     shown,
                     key = { index, flight -> "$index:${flight.id ?: flight.hashCode()}" },
-                ) { _, flight ->
-                    FlightCard(flight, onOpen = { onOpen(flight) }, onBook = { onBook(flight) })
+                ) { index, flight ->
+                    FlightCard(
+                        flight = flight,
+                        onOpen = { onOpen(flight) },
+                        onBook = { onBook(flight) },
+                        // Only when the list is ordered by price. Top of a
+                        // list sorted by departure time is the earliest
+                        // flight, and calling that the best price would be
+                        // a lie the border tells loudly.
+                        best = index == 0 && state.sort == SortBy.PRICE && !state.running,
+                    )
                 }
                 // The list keeps its length honest while it grows: two grey
                 // cards at the bottom say more is coming without pretending
@@ -255,90 +261,256 @@ private fun Bone(widthFraction: Float, alpha: Float) {
 }
 
 /**
- * Filters on the left, ordering on the right. The filter button carries the
- * number of rules in force, because a list that has been narrowed looks
- * exactly like a list that is short.
+ * The chip rail under the app bar: everything that changes what the list
+ * shows, in one horizontal scroll.
+ *
+ * The two most-wanted narrowings — direct flights, and a morning departure —
+ * are chips of their own rather than rules buried in the sheet, because they
+ * are the two people reach for and neither deserves a modal. The sheet is
+ * still there for everything else, and its chip carries the count: a list
+ * that has been narrowed looks exactly like a list that is short.
+ *
+ * Ordering is not here. Sorting does not remove anything and narrowing does,
+ * and a row that mixes them invites reading "Price" as "cheap flights only".
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ControlsRow(
     filters: Filters,
-    sort: SortBy,
     onOpenFilters: () -> Unit,
-    onSort: (SortBy) -> Unit,
+    onFilters: (Filters) -> Unit,
     onCalendar: () -> Unit = {},
+    onTrack: () -> Unit = {},
 ) {
     val words = LocalWords.current
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = Space.s4),
         horizontalArrangement = Arrangement.spacedBy(Space.s2),
-        verticalArrangement = Arrangement.spacedBy(Space.s2),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Pill(
-            label = if (filters.isEmpty) words.filters else "${words.filters} · ${filters.active}",
+        Chip(
+            label = if (filters.isEmpty) words.filters else "${words.filters} · ${Money.isolate(filters.active.toString())}",
             on = !filters.isEmpty,
+            icon = R.drawable.ic_sliders,
             onClick = onOpenFilters,
         )
-        Pill(label = words.priceCalendar, on = false, onClick = onCalendar)
-        listOf(
-            SortBy.PRICE to words.sortPrice,
-            SortBy.DEPARTURE to words.sortDeparture,
-            SortBy.DURATION to words.sortDuration,
-        ).forEach { (option, label) ->
-            Pill(label = label, on = option == sort) { onSort(option) }
-        }
+        Chip(
+            label = words.direct,
+            on = filters.maxStops == 0,
+            onClick = { onFilters(filters.copy(maxStops = if (filters.maxStops == 0) null else 0)) },
+        )
+        Chip(
+            label = words.morning,
+            on = filters.departBands == setOf(TimeBand.MORNING),
+            onClick = {
+                val already = filters.departBands == setOf(TimeBand.MORNING)
+                onFilters(filters.copy(departBands = if (already) emptySet() else setOf(TimeBand.MORNING)))
+            },
+        )
+        Chip(label = words.priceCalendar, on = false, onClick = onCalendar)
+        Chip(label = words.trackRoute, on = false, onClick = onTrack)
     }
 }
 
+/** 32dp tall, 8dp corners, 13sp medium — the chip from the design system. */
 @Composable
-private fun Pill(label: String, on: Boolean, onClick: () -> Unit) {
-    Text(
-        label,
-        style = MaterialTheme.typography.labelLarge,
-        color = if (on) Ink.accentDeep else Ink.ink,
+private fun Chip(
+    label: String,
+    on: Boolean,
+    onClick: () -> Unit,
+    @androidx.annotation.DrawableRes icon: Int? = null,
+) {
+    Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(Radius.pill))
+            .clip(RoundedCornerShape(Radius.sm))
             .background(if (on) Ink.accentSoft else Ink.surface)
-            .border(1.dp, if (on) Ink.accentUi else Ink.lineStrong, RoundedCornerShape(Radius.pill))
+            .border(1.dp, if (on) Ink.accentUi else Ink.lineStrong, RoundedCornerShape(Radius.sm))
             .clickable(onClick = onClick)
-            .padding(horizontal = Space.s3, vertical = Space.s2),
-    )
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        icon?.let {
+            Icon(
+                painter = painterResource(it),
+                contentDescription = null,
+                tint = if (on) Ink.accentDeep else Ink.ink,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (on) Ink.accentDeep else Ink.ink,
+            maxLines = 1,
+        )
+    }
 }
 
+/**
+ * How many offers, from how many airlines, and what the list is ordered by.
+ *
+ * The airline count is the honest measure of a comparison: forty offers from
+ * two carriers is a thinner answer than twelve from six, and only one of
+ * those numbers says so.
+ */
 @Composable
-private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
-    val lang = LocalLang.current
-    val q = state.query ?: return
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Ink.surface)
-            .padding(Space.s4),
+private fun SortRow(
+    shown: List<Flight>,
+    running: Boolean,
+    sort: SortBy,
+    onSort: (SortBy) -> Unit,
+) {
+    val words = LocalWords.current
+    var open by remember { mutableStateOf(false) }
+
+    val airlines = shown.mapNotNull { flight ->
+        (flight.outbound?.operatingAirline ?: flight.airline)?.takeIf { it.isNotBlank() }
+    }.toSet().size
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "${cityName(q.from, lang)} → ${cityName(q.to, lang)}",
-            style = MaterialTheme.typography.titleMedium,
+            text = buildString {
+                append(
+                    if (running) words.comparing
+                    else words.offersSoFar.replace("{n}", Money.isolate(shown.size.toString()))
+                )
+                if (!running && airlines > 0) {
+                    append(" · ")
+                    append(
+                        if (airlines == 1) words.airlineOne
+                        else words.airlinesMany.replace("{n}", Money.isolate(airlines.toString()))
+                    )
+                }
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = Ink.muted,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                // The same shape the search screen uses. An ISO date here and
-                // "31 Aug" one screen back is two apps.
-                listOfNotNull(q.departDate, q.returnDate)
-                    .joinToString(" – ") { formatDate(it, lang) },
-                style = MaterialTheme.typography.bodyMedium,
-                color = Ink.muted,
-            )
-            // "Search" on this button meant "go back and change the search",
-            // which is not what the word says.
-            OutlinedButton(onClick = onEdit, shape = RoundedCornerShape(Radius.sm)) {
-                Text(LocalWords.current.edit, style = MaterialTheme.typography.labelSmall)
+        Box {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .clickable { open = true }
+                    .padding(horizontal = Space.s2, vertical = Space.s1),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_sort),
+                    contentDescription = null,
+                    tint = Ink.accentDeep,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(
+                    labelFor(sort, words),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = Ink.accentDeep,
+                )
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                SortBy.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                labelFor(option, words),
+                                color = if (option == sort) Ink.accentDeep else Ink.ink,
+                            )
+                        },
+                        onClick = { onSort(option); open = false },
+                    )
+                }
             }
         }
     }
+}
+
+private fun labelFor(sort: SortBy, words: Words): String = when (sort) {
+    SortBy.PRICE -> words.sortPrice
+    SortBy.DEPARTURE -> words.sortDeparture
+    SortBy.DURATION -> words.sortDuration
+}
+
+/**
+ * The app bar the design draws: back, the route with the trip under it in
+ * one grey line, and "Edit" as a text link.
+ *
+ * It sits on the canvas rather than on white. A white bar over a white list
+ * needs a rule to separate them and then reads as two surfaces; on the paper
+ * ground the cards are the only white on screen, which is what makes them
+ * look like cards.
+ */
+@Composable
+private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
+    val lang = LocalLang.current
+    val words = LocalWords.current
+    val q = state.query ?: return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Space.s4, vertical = Space.s3),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s4),
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = null,
+            tint = Ink.ink,
+            modifier = Modifier.size(22.dp).clickable(onClick = onEdit),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "${cityName(q.from, lang)} → ${cityName(q.to, lang)}",
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            // Dates, travellers and cabin on one grey line: three answers
+            // somebody already gave, worth confirming and not worth a row
+            // each.
+            Text(
+                tripLine(q, lang, words),
+                style = MaterialTheme.typography.labelMedium,
+                color = Ink.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // "Search" on this control meant "go back and change the search",
+        // which is not what the word says.
+        Text(
+            words.edit,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = Ink.accentDeep,
+            modifier = Modifier
+                .clip(RoundedCornerShape(Radius.sm))
+                .clickable(onClick = onEdit)
+                .padding(horizontal = Space.s2, vertical = Space.s1),
+        )
+    }
+}
+
+private fun tripLine(q: SearchQuery, lang: pro.qasdatrip.core.Lang, words: Words): String {
+    val dates = listOfNotNull(q.departDate, q.returnDate).joinToString(" – ") { formatDate(it, lang) }
+    val travellers = if (q.travellers == 1) {
+        words.travellerOne
+    } else {
+        words.travellersMany.replace("{n}", Money.isolate(q.travellers.toString()))
+    }
+    val cabin = when (q.cabin) {
+        Cabin.ECONOMY -> words.economy
+        Cabin.PREMIUM -> words.premium
+        Cabin.BUSINESS -> words.business
+        Cabin.FIRST -> words.first
+    }
+    return listOf(dates, travellers, cabin).filter { it.isNotBlank() }.joinToString(" · ")
 }
 
 /**

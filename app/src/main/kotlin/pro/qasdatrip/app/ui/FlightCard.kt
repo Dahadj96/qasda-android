@@ -4,28 +4,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalLang
 import pro.qasdatrip.app.ui.theme.LocalWords
@@ -42,137 +35,160 @@ import pro.qasdatrip.core.arrivalDayOffset
 import pro.qasdatrip.core.stopCount
 
 /**
- * The card, as the site draws it: the two facts worth a chip, a leg you can
- * read across, and one price with the name of the site quoting it. The site
- * name belongs here and on the details page, nowhere else — that line is the
- * product.
+ * One offer, as the design draws it.
+ *
+ * Four lines and no ornament: who flies it and what it costs, when it leaves
+ * and lands, and the small print. There is no airline logo here on purpose —
+ * a wide wordmark crushed into a 40dp circle is decoration that costs a
+ * network request and reads as noise beside the name it is already next to.
+ *
+ * The card is the whole target: tapping it opens the detail, where every
+ * site's price is listed and the booking actually starts. A "Book" button
+ * here would send somebody to one site before they had seen the others,
+ * which is the opposite of what this product is for.
  */
 @Composable
-fun FlightCard(flight: Flight, onOpen: () -> Unit, onBook: () -> Unit) {
+fun FlightCard(
+    flight: Flight,
+    onOpen: () -> Unit,
+    onBook: () -> Unit,
+    best: Boolean = false,
+) {
     val words = LocalWords.current
     val lang = LocalLang.current
     val cheapest = flight.cheapest
+    val leg = flight.outbound ?: flight.outboundOrSelf
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.md))
             .background(Ink.surface)
-            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
+            .border(
+                width = if (best) 2.dp else 1.dp,
+                color = if (best) Ink.accentUi else Ink.line,
+                shape = RoundedCornerShape(Radius.md),
+            )
             .clickable(onClick = onOpen)
-            .padding(Space.s4),
+            .padding(CardPad),
         verticalArrangement = Arrangement.spacedBy(Space.s3),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
-            Chip(
-                text = if (flight.hasLuggage) words.bagIncluded else words.bagNone,
-                fg = if (flight.hasLuggage) Ink.accentDeep else Ink.alert,
-                bg = if (flight.hasLuggage) Ink.accentSoft else Ink.alertSoft,
-            )
-            Seats.left(flight.seatsAvailable)?.let { n ->
-                Chip(text = seatsLabel(n, words), fg = Ink.notice, bg = Ink.noticeSoft)
-            }
+        if (best) {
+            Tag(words.bestPrice, fg = Ink.accentDeep, bg = Ink.accentSoft)
         }
-
-        flight.outbound?.let { LegRow(it, words.outbound) }
-        flight.inbound?.let { LegRow(it, words.inbound) }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text(
-                    text = Money.format(cheapest?.second ?: 0.0, lang),
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                cheapest?.let {
-                    // "Cheapest" only means something when more than one site
-                    // quoted this flight. On a list where every card claims
-                    // it, the word stops being information and starts being
-                    // decoration — so a single quote just names its site.
-                    Text(
-                        text = if (flight.quotingSites > 1) {
-                            words.cheapestOfSites
-                                .replace("{site}", Sites.name(it.first))
-                                .replace("{n}", Money.isolate(flight.quotingSites.toString()))
-                        } else {
-                            Sites.name(it.first)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (flight.quotingSites > 1) Ink.accentDeep else Ink.muted,
-                    )
-                }
+            Text(
+                text = Airlines.name(leg?.operatingAirline ?: flight.airline),
+                style = MaterialTheme.typography.titleMedium,
+                color = Ink.inkSoft,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = Money.format(cheapest?.second ?: 0.0, lang),
+                style = MaterialTheme.typography.headlineSmall,
+                color = Ink.accentDeep,
+            )
+        }
+
+        leg?.let { TimesRow(it) }
+        flight.inbound?.let { TimesRow(it, label = words.inbound) }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
+        ) {
+            cheapest?.let { Tag(Sites.name(it.first), fg = Ink.inkSoft, bg = Ink.surfaceSoft) }
+            // A fare with no checked bag is not the same fare at a lower
+            // price, and the list sorts on price. The design does not draw
+            // this chip; leaving it out would let the cheapest row on screen
+            // be cheapest only because something was taken out of it.
+            if (!flight.hasLuggage) {
+                Tag(words.bagNone, fg = Ink.alert, bg = Ink.alertSoft)
             }
-            Button(
-                onClick = onBook,
-                shape = RoundedCornerShape(Radius.sm),
-                colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
-            ) { Text(words.book, fontWeight = FontWeight.SemiBold) }
+            Seats.left(flight.seatsAvailable)?.let { n ->
+                Tag(seatsLabel(n, words), fg = Ink.alert, bg = Ink.alertSoft)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = words.seeOffer,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                ),
+                color = Ink.accentDeep,
+                maxLines = 1,
+            )
         }
     }
 }
 
+private val CardPad = 14.dp
+
+/**
+ * `07:30 → 10:45` on the left, `Direct · 3h15` on the right.
+ *
+ * The stop count and the duration share a line because they answer one
+ * question together: two hours longer for one stop is a trade somebody makes
+ * in a glance, and splitting them across the card makes them argue.
+ */
 @Composable
-private fun LegRow(leg: Leg, label: String) {
+private fun TimesRow(leg: Leg, label: String? = null) {
     val words = LocalWords.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(Space.s2),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
-            Text(Money.isolate(leg.departure.orEmpty()), style = MaterialTheme.typography.titleMedium)
-            Text(leg.origin.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
+        label?.let {
+            Text(it, style = MaterialTheme.typography.labelMedium, color = Ink.muted)
         }
-
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Airline marks are wide wordmarks far larger than 40dp, and
-            // nearest-neighbour downscaling turns fine strokes into stripes.
-            // Fit inside a padded circle, resampled properly.
-            AsyncImage(
-                model = Airlines.logoUrl(leg.operatingAirline),
-                contentDescription = Airlines.name(leg.operatingAirline),
-                contentScale = ContentScale.Fit,
-                filterQuality = FilterQuality.High,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(Radius.pill))
-                    .background(Ink.surfaceSoft)
-                    .padding(Space.s1),
+        Text(
+            Money.isolate(leg.departure.orEmpty()),
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text("→", style = MaterialTheme.typography.bodyLarge, color = Ink.muted)
+        Row(verticalAlignment = Alignment.Top) {
+            Text(
+                Money.isolate(leg.arrival.orEmpty()),
+                style = MaterialTheme.typography.titleLarge,
             )
-            Box(
-                modifier = Modifier
-                    .padding(top = Space.s2)
-                    .fillMaxWidth(0.7f)
-                    .height(1.dp)
-                    .background(Ink.line),
-            )
-            // Nothing at all when the itinerary does not say. "Direct" is a
-            // claim, and the server sends no stop count on this route.
-            stopsLabel(leg.stopCount, words.direct, words.stopsOne, words.stopsMany)?.let { label ->
+            // A 14:25 departure arriving "17:35" reads as an afternoon hop.
+            // When the duration says that 17:35 is tomorrow, the +1 is the
+            // difference between a three-hour flight and a twenty-six-hour one.
+            val days = arrivalDayOffset(leg.departure, leg.arrival, leg.duration) ?: 0
+            if (days > 0) {
                 Text(
-                    text = label,
+                    Money.isolate("+$days"),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (leg.stopCount == 0) Ink.accentDeep else Ink.alert,
+                    color = Ink.alert,
+                    modifier = Modifier.padding(start = 2.dp),
                 )
             }
         }
-
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.End,
-        ) {
-            Text(Money.isolate(leg.duration.orEmpty()), style = MaterialTheme.typography.labelSmall, color = Ink.muted)
-            ArrivalTime(leg)
-            Text(leg.destination.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
-        }
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = journeyLine(leg, words),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (leg.stopCount == 0) Ink.accentDeep else Ink.muted,
+            maxLines = 1,
+        )
     }
+}
+
+/**
+ * "Direct · 3h15", or just "3h15" when the itinerary does not say how many
+ * stops it has. "Direct" is a claim, and some sites send no stop count.
+ */
+private fun journeyLine(leg: Leg, words: Words): String {
+    val stops = stopsLabel(leg.stopCount, words.direct, words.stopsOne, words.stopsMany)
+    val duration = leg.duration?.takeIf { it.isNotBlank() }?.let { Money.isolate(it) }
+    return listOfNotNull(stops, duration).joinToString(" · ")
 }
 
 private fun stopsLabel(stops: Int?, direct: String, one: String, many: String): String? = when (stops) {
@@ -182,12 +198,34 @@ private fun stopsLabel(stops: Int?, direct: String, one: String, many: String): 
     else -> many.replace("{n}", Money.isolate(stops.toString()))
 }
 
+/** "1 seats" is the sort of thing that makes an app look machine-written. */
+fun seatsLabel(n: Int, words: Words): String =
+    if (n == 1) words.seatOne else words.seatsShort.replace("{n}", Money.isolate(n.toString()))
+
 /**
- * The arrival, with the day it actually happens on.
- *
- * A 14:25 departure arriving "17:35" reads as an afternoon hop. When the
- * duration says that 17:35 is tomorrow, the +1 is the difference between a
- * three-hour flight and a twenty-six-hour one.
+ * The small rounded label the design uses inside cards: 10sp extra-bold on a
+ * tinted ground, 6dp corners.
+ */
+@Composable
+fun Tag(text: String, fg: Color, bg: Color) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = fg,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(RoundedCornerShape(Radius.tag))
+            .background(bg)
+            .padding(horizontal = Space.s2, vertical = 3.dp),
+    )
+}
+
+/** Kept for the detail screen, which still lists a fare's facts as chips. */
+@Composable
+fun Chip(text: String, fg: Color, bg: Color) = Tag(text, fg, bg)
+
+/**
+ * The arrival with its day offset, for screens that show a leg on its own.
  */
 @Composable
 fun ArrivalTime(leg: Leg) {
@@ -203,21 +241,4 @@ fun ArrivalTime(leg: Leg) {
             )
         }
     }
-}
-
-/** "1 seats" is the sort of thing that makes an app look machine-written. */
-fun seatsLabel(n: Int, words: Words): String =
-    if (n == 1) words.seatOne else words.seatsShort.replace("{n}", Money.isolate(n.toString()))
-
-@Composable
-fun Chip(text: String, fg: Color, bg: Color) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = fg,
-        modifier = Modifier
-            .clip(RoundedCornerShape(Radius.sm))
-            .background(bg)
-            .padding(horizontal = Space.s2, vertical = Space.s1),
-    )
 }

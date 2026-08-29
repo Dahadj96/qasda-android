@@ -8,8 +8,12 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.post
 import io.ktor.client.request.prepareGet
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +23,10 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * The one place that knows the server exists.
@@ -125,6 +132,84 @@ class QasdaApi(
         envelope.data?.redirectUrl
     }.getOrNull()
 
+    /**
+     * Ask to be told when this route and date gets cheaper.
+     *
+     * The address is not stored on the phone and no account is created. The
+     * server sends a confirmation mail and does nothing at all until it is
+     * answered, which is why the reply says `needsConfirmation` rather than
+     * "done": telling somebody they are being watched when the mail is still
+     * unopened is the one lie this feature cannot afford.
+     */
+    suspend fun createWatch(
+        q: SearchQuery,
+        contact: String,
+        locale: String,
+        targetPrice: Double? = null,
+    ): WatchCreated? = runCatching {
+        val envelope: Envelope<WatchCreated> = client.post("$baseUrl/api/v1/alerts") {
+            identify()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("contact", JsonPrimitive(contact))
+                    put("locale", JsonPrimitive(locale))
+                    put("from", JsonPrimitive(q.from))
+                    put("to", JsonPrimitive(q.to))
+                    put("departDate", JsonPrimitive(q.departDate))
+                    q.returnDate?.takeIf { it.isNotBlank() }?.let { put("returnDate", JsonPrimitive(it)) }
+                    put("adults", JsonPrimitive(q.adults))
+                    put("children", JsonPrimitive(q.children))
+                    put("infants", JsonPrimitive(q.infants))
+                    put("cabinClass", JsonPrimitive(q.cabin.wire))
+                    targetPrice?.let { put("targetPrice", JsonPrimitive(it)) }
+                }
+            )
+        }.body()
+        envelope.data
+    }.getOrNull()
+
+    /** Everything that mailbox is watching. Null means the link is no good. */
+    suspend fun watches(key: ManageKey): List<Watch>? = runCatching {
+        val envelope: Envelope<List<Watch>> = client.get("$baseUrl/api/v1/alerts") {
+            identify()
+            parameter("w", key.watcherId)
+            parameter("s", key.signature)
+        }.body()
+        envelope.data
+    }.getOrNull()
+
+    /** Stop one watch. True only when the server confirms it. */
+    suspend fun cancelWatch(key: ManageKey, watchId: Long): Boolean = runCatching {
+        val envelope: Envelope<CancelResult> = client.post("$baseUrl/api/v1/alerts/cancel") {
+            identify()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("w", JsonPrimitive(key.watcherId))
+                    put("s", JsonPrimitive(key.signature))
+                    put("id", JsonPrimitive(watchId))
+                }
+            )
+        }.body()
+        envelope.data?.cancelled == true
+    }.getOrElse { false }
+
+    /**
+     * What this route and date has cost, day by day, as we observed it.
+     *
+     * Null on any failure, including a server that does not have this endpoint
+     * yet — the screen draws without a chart rather than refusing to open.
+     */
+    suspend fun priceHistory(q: SearchQuery, days: Int = 30): PriceTrend? = runCatching {
+        val envelope: Envelope<PriceTrend> = client.get("$baseUrl/api/v1/price-history") {
+            identify()
+            searchParams(q)
+            parameter("days", days)
+        }.body()
+        envelope.data
+    }.getOrNull()
+
     private fun HttpRequestBuilder.identify() {
         header("X-Api-Key", apiKey)
         header("X-Device-Id", deviceId)
@@ -155,6 +240,9 @@ class QasdaApi(
 
 @Serializable
 data class BookingLink(val redirectUrl: String? = null)
+
+@Serializable
+data class CancelResult(val cancelled: Boolean = false)
 
 /** Each platform brings its own engine: OkHttp on Android, NSURLSession on iOS. */
 expect fun httpClient(): HttpClient

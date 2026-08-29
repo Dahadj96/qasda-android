@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import pro.qasdatrip.core.Lang
+import pro.qasdatrip.core.ManageKey
 import pro.qasdatrip.core.SearchQuery
 
 /**
@@ -49,6 +50,31 @@ class Settings(context: Context) {
             prefs.edit().putString(KEY_RECENT, json.encodeToString(SEARCHES, value)).apply()
         }
 
+    /**
+     * The signed link out of the confirmation email, if one has arrived here.
+     *
+     * The only credential in the product, and not a login: it grants exactly
+     * the alerts belonging to one mailbox. The address itself is deliberately
+     * not stored — the phone has no use for it, and a mailbox address sitting
+     * in a preferences file is a liability with no matching benefit.
+     */
+    var manageKey: ManageKey?
+        get() {
+            val id = prefs.getLong(KEY_WATCHER, -1L).takeIf { it >= 0 } ?: return null
+            val signature = prefs.getString(KEY_SIGNATURE, null) ?: return null
+            return ManageKey(id, signature)
+        }
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) {
+                    remove(KEY_WATCHER); remove(KEY_SIGNATURE)
+                } else {
+                    putLong(KEY_WATCHER, value.watcherId)
+                    putString(KEY_SIGNATURE, value.signature)
+                }
+            }.apply()
+        }
+
     /** Newest first, no duplicates, and never more than [KEEP]. */
     fun remember(query: SearchQuery) {
         recent = (listOf(query) + recent.filterNot { it.sameTrip(query) }).take(KEEP)
@@ -66,6 +92,8 @@ class Settings(context: Context) {
     private companion object {
         const val KEY_LANG = "lang"
         const val KEY_RECENT = "recent_searches"
+        const val KEY_WATCHER = "alert_watcher_id"
+        const val KEY_SIGNATURE = "alert_signature"
         const val KEEP = 5
 
         val json = Json { ignoreUnknownKeys = true }

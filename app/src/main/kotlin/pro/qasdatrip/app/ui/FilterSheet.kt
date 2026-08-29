@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -93,12 +94,18 @@ fun FilterSheet(
                 }
             }
 
+            // "At most this many stops", so each chip is exclusive of the
+            // others: two of them at once would be a range with a floor, and
+            // nobody wants flights with at least one stop.
             Section(words.stopsLabel) {
                 Choice(words.direct, draft.maxStops == 0) {
                     draft = draft.copy(maxStops = if (draft.maxStops == 0) null else 0)
                 }
                 Choice(words.stopsOne, draft.maxStops == 1) {
                     draft = draft.copy(maxStops = if (draft.maxStops == 1) null else 1)
+                }
+                Choice(words.stopsTwoPlus, draft.maxStops == null) {
+                    draft = draft.copy(maxStops = null)
                 }
             }
 
@@ -118,8 +125,9 @@ fun FilterSheet(
                 }
             }
 
-            Section(words.bagIncluded) {
-                Choice(words.bagIncluded, draft.bagOnly) { draft = draft.copy(bagOnly = !draft.bagOnly) }
+            Section(words.baggage) {
+                Choice(words.bagIncluded, draft.bagOnly) { draft = draft.copy(bagOnly = true) }
+                Choice(words.anyBaggage, !draft.bagOnly) { draft = draft.copy(bagOnly = false) }
             }
 
             if (priceCeiling != null && priceCeiling > 0) {
@@ -129,8 +137,12 @@ fun FilterSheet(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(words.maxPrice, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
-                        Text(Money.format(chosen, lang), style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            words.maxPrice.uppercase(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Ink.muted,
+                        )
+                        Text(Money.format(chosen, lang), style = MaterialTheme.typography.titleMedium)
                     }
                     Slider(
                         value = chosen.toFloat(),
@@ -158,9 +170,9 @@ fun FilterSheet(
             val matches = matchCount(draft)
             Button(
                 onClick = { onApply(draft) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = matches > 0,
-                shape = RoundedCornerShape(Radius.sm),
+                shape = RoundedCornerShape(Radius.pill),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Ink.ink,
                     contentColor = Ink.inverse,
@@ -174,7 +186,7 @@ fun FilterSheet(
                     } else {
                         words.noMatchTitle
                     },
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
                 )
             }
         }
@@ -187,7 +199,7 @@ private const val STEP = 1_000
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-        Text(title, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
+        Text(title.uppercase(), style = MaterialTheme.typography.labelSmall, color = Ink.muted)
         // Four bands do not fit on one line of a 360dp phone in every
         // language, and "Après-midi" is the one that proves it.
         FlowRow(
@@ -208,6 +220,6 @@ private fun Choice(label: String, on: Boolean, onToggle: () -> Unit) {
             .background(if (on) Ink.accentSoft else Ink.surface)
             .border(1.dp, if (on) Ink.accentUi else Ink.lineStrong, RoundedCornerShape(Radius.sm))
             .clickable(onClick = onToggle)
-            .padding(horizontal = Space.s3, vertical = Space.s2),
+            .padding(horizontal = 14.dp, vertical = 7.dp),
     )
 }
