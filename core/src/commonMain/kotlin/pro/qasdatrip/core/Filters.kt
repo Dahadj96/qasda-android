@@ -66,7 +66,11 @@ object FlightList {
         val price = flight.cheapest?.second
         if (f.maxPrice != null && price != null && price > f.maxPrice) return false
 
-        val stops = flight.outbound?.stops ?: flight.stops
+        // The derived count, not the raw field: the server leaves `stops`
+        // empty on routes where the segments plainly show a change of plane,
+        // and a direct-only filter that returns everything is worse than no
+        // filter at all.
+        val stops = flight.outbound?.stopCount ?: flight.stops
         if (f.maxStops != null && stops != null && stops > f.maxStops) return false
 
         if (f.departBands.isNotEmpty()) {
