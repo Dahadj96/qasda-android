@@ -112,7 +112,10 @@ fun ResultsScreen(
         // A bar with no percentage on it. The server deliberately does not say
         // which sites have answered, so any number here would be invented; what
         // it can honestly report is that the search is still going.
-        if (state.running) {
+        //
+        // Only once there is a list to grow. Before the first offer arrives the
+        // whole screen is the wait, and that is drawn as the route instead.
+        if (state.running && shown.isNotEmpty()) {
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth(),
                 color = Ink.accentDeep,
@@ -132,8 +135,13 @@ fun ResultsScreen(
                 onCalendar = onCalendar,
                 onTrack = onTrack,
             )
-            Spacer(modifier = Modifier.height(Space.s3))
-            SortRow(shown = shown, running = state.running, sort = state.sort, onSort = onSort)
+            // Nothing to count and nothing to order until the first offer is
+            // in. Left in, it repeated the loading screen's own caption a
+            // finger's width above it.
+            if (shown.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(Space.s3))
+                SortRow(shown = shown, running = state.running, sort = state.sort, onSort = onSort)
+            }
             Spacer(modifier = Modifier.height(Space.s2))
         }
 
@@ -165,6 +173,17 @@ fun ResultsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                // The plane crossing the route is the only honest progress
+                // this screen can show, and it is the difference between
+                // "working" and "frozen" on a slow connection.
+                item {
+                    RouteLoading(
+                        origin = cityName(state.query?.from, lang),
+                        destination = cityName(state.query?.to, lang),
+                        offersSoFar = state.flights.size,
+                        modifier = Modifier.padding(vertical = Space.s3),
+                    )
+                }
                 items(SkeletonCount) { SkeletonCard() }
             }
 
@@ -241,21 +260,65 @@ private fun SkeletonCard() {
             .clip(RoundedCornerShape(Radius.md))
             .background(Ink.surface)
             .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
-            .padding(Space.s4),
+            .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(Space.s3),
     ) {
-        Bone(widthFraction = 0.45f, alpha = alpha)
-        Bone(widthFraction = 0.75f, alpha = alpha)
-        Bone(widthFraction = 0.35f, alpha = alpha)
+        // The circle is the airline mark's circle, at the same 36dp, so the
+        // row does not jump sideways when the real card replaces this one.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s3),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Ink.line.copy(alpha = alpha)),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Bone(widthFraction = 0.6f, alpha = alpha)
+                Bone(widthFraction = 0.4f, alpha = alpha, height = 10.dp)
+            }
+            Box(
+                modifier = Modifier
+                    .size(width = 70.dp, height = 18.dp)
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(Ink.line.copy(alpha = alpha)),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Space.s3),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 54.dp, height = 22.dp)
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(Ink.line.copy(alpha = alpha)),
+            )
+            Box(modifier = Modifier.weight(1f).height(2.dp).background(Ink.line.copy(alpha = alpha)))
+            Box(
+                modifier = Modifier
+                    .size(width = 54.dp, height = 22.dp)
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .background(Ink.line.copy(alpha = alpha)),
+            )
+        }
+        Bone(widthFraction = 0.5f, alpha = alpha, height = 20.dp)
     }
 }
 
 @Composable
-private fun Bone(widthFraction: Float, alpha: Float) {
+private fun Bone(widthFraction: Float, alpha: Float, height: androidx.compose.ui.unit.Dp = 14.dp) {
     Box(
         modifier = Modifier
             .fillMaxWidth(widthFraction)
-            .height(14.dp)
+            .height(height)
             .clip(RoundedCornerShape(Radius.sm))
             .background(Ink.line.copy(alpha = alpha)),
     )
@@ -283,35 +346,96 @@ private fun ControlsRow(
     onTrack: () -> Unit = {},
 ) {
     val words = LocalWords.current
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(Space.s2),
+    ) {
+        // Two equal controls, side by side and full width, exactly as the
+        // mobile site has them. They were chips in a scrolling rail before,
+        // which put the price calendar — the thing that answers "is this a
+        // bad day to fly?" — off the right-hand edge of the screen where
+        // nobody found it.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4),
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
+        ) {
+            ToolButton(
+                label = if (filters.isEmpty) words.filters
+                else "${words.filters} · ${Money.isolate(filters.active.toString())}",
+                icon = R.drawable.ic_sliders,
+                on = !filters.isEmpty,
+                onClick = onOpenFilters,
+                modifier = Modifier.weight(1f),
+            )
+            ToolButton(
+                label = words.priceCalendar,
+                icon = R.drawable.ic_calendar,
+                on = false,
+                onClick = onCalendar,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        // Underneath, the two narrowings people actually reach for, and the
+        // one thing you can do with a route rather than to a list.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = Space.s4),
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Chip(
+                label = words.direct,
+                on = filters.maxStops == 0,
+                onClick = { onFilters(filters.copy(maxStops = if (filters.maxStops == 0) null else 0)) },
+            )
+            Chip(
+                label = words.morning,
+                on = filters.departBands == setOf(TimeBand.MORNING),
+                onClick = {
+                    val already = filters.departBands == setOf(TimeBand.MORNING)
+                    onFilters(filters.copy(departBands = if (already) emptySet() else setOf(TimeBand.MORNING)))
+                },
+            )
+            Chip(label = words.trackRoute, on = false, onClick = onTrack)
+        }
+    }
+}
+
+/** Full width, 44 tall, icon then label — the pair above the results list. */
+@Composable
+private fun ToolButton(
+    label: String,
+    @androidx.annotation.DrawableRes icon: Int,
+    on: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = Space.s4),
-        horizontalArrangement = Arrangement.spacedBy(Space.s2),
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(Radius.md))
+            .background(if (on) Ink.accentSoft else Ink.surface)
+            .border(1.dp, if (on) Ink.accentUi else Ink.lineStrong, RoundedCornerShape(Radius.md))
+            .clickable(onClick = onClick)
+            .padding(horizontal = Space.s2),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Chip(
-            label = if (filters.isEmpty) words.filters else "${words.filters} · ${Money.isolate(filters.active.toString())}",
-            on = !filters.isEmpty,
-            icon = R.drawable.ic_sliders,
-            onClick = onOpenFilters,
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = if (on) Ink.accentDeep else Ink.ink,
+            modifier = Modifier.size(16.dp),
         )
-        Chip(
-            label = words.direct,
-            on = filters.maxStops == 0,
-            onClick = { onFilters(filters.copy(maxStops = if (filters.maxStops == 0) null else 0)) },
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = if (on) Ink.accentDeep else Ink.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Chip(
-            label = words.morning,
-            on = filters.departBands == setOf(TimeBand.MORNING),
-            onClick = {
-                val already = filters.departBands == setOf(TimeBand.MORNING)
-                onFilters(filters.copy(departBands = if (already) emptySet() else setOf(TimeBand.MORNING)))
-            },
-        )
-        Chip(label = words.priceCalendar, on = false, onClick = onCalendar)
-        Chip(label = words.trackRoute, on = false, onClick = onTrack)
     }
 }
 

@@ -48,6 +48,7 @@ fun SettingsScreen(
     onLanguage: (Lang?) -> Unit,
     onOpen: (path: String) -> Unit,
     onAbout: () -> Unit = {},
+    onBack: () -> Unit = {},
 ) {
     val words = LocalWords.current
 
@@ -56,7 +57,16 @@ fun SettingsScreen(
         contentPadding = PaddingValues(Space.s4),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
-        item { Text(words.navSettings, style = MaterialTheme.typography.displaySmall) }
+        // Réglages is reached from Compte now, so it is a page you walked
+        // into and it owes you a way out.
+        item {
+            QasdaAppBar(
+                title = words.navSettings,
+                large = true,
+                onBack = onBack,
+                modifier = Modifier.padding(horizontal = 0.dp),
+            )
+        }
 
         item { Label(words.language) }
         item {
