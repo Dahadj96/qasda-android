@@ -47,6 +47,7 @@ fun SettingsScreen(
     versionName: String,
     onLanguage: (Lang?) -> Unit,
     onOpen: (path: String) -> Unit,
+    onAbout: () -> Unit = {},
 ) {
     val words = LocalWords.current
 
@@ -75,9 +76,12 @@ fun SettingsScreen(
         item { Label(words.about) }
         item {
             Group {
-                Link(words.howItWorks) { onOpen(pathOf("how", effective)) }
+                // About is a screen now rather than a link off to the site.
+                // It is the page that says we do not sell the ticket, and
+                // that sentence should not need a working connection.
+                Link(words.aboutTitle, onAbout)
                 Divider()
-                Link(words.about) { onOpen(pathOf("about", effective)) }
+                Link(words.howItWorks) { onOpen(pathOf("how", effective)) }
                 Divider()
                 Link(words.privacy) { onOpen(pathOf("privacy", effective)) }
             }

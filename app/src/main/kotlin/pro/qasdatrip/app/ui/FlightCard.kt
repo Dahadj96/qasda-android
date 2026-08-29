@@ -23,6 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalLang
@@ -86,10 +88,20 @@ fun FlightCard(flight: Flight, onOpen: () -> Unit, onBook: () -> Unit) {
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 cheapest?.let {
+                    // "Cheapest" only means something when more than one site
+                    // quoted this flight. On a list where every card claims
+                    // it, the word stops being information and starts being
+                    // decoration — so a single quote just names its site.
                     Text(
-                        text = words.cheapestOn.replace("{site}", Sites.name(it.first)),
+                        text = if (flight.quotingSites > 1) {
+                            words.cheapestOfSites
+                                .replace("{site}", Sites.name(it.first))
+                                .replace("{n}", Money.isolate(flight.quotingSites.toString()))
+                        } else {
+                            Sites.name(it.first)
+                        },
                         style = MaterialTheme.typography.labelSmall,
-                        color = Ink.accentDeep,
+                        color = if (flight.quotingSites > 1) Ink.accentDeep else Ink.muted,
                     )
                 }
             }
@@ -120,13 +132,19 @@ private fun LegRow(leg: Leg, label: String) {
             modifier = Modifier.weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // Airline marks are wide wordmarks far larger than 40dp, and
+            // nearest-neighbour downscaling turns fine strokes into stripes.
+            // Fit inside a padded circle, resampled properly.
             AsyncImage(
                 model = Airlines.logoUrl(leg.operatingAirline),
                 contentDescription = Airlines.name(leg.operatingAirline),
+                contentScale = ContentScale.Fit,
+                filterQuality = FilterQuality.High,
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(Radius.pill))
-                    .background(Ink.surfaceSoft),
+                    .background(Ink.surfaceSoft)
+                    .padding(Space.s1),
             )
             Box(
                 modifier = Modifier
