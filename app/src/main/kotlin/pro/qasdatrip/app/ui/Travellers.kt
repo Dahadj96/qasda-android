@@ -62,6 +62,10 @@ fun TravellersPicker(
     infants: Int,
     cabin: Cabin,
     onApply: (adults: Int, children: Int, infants: Int, cabin: Cabin) -> Unit,
+    // Off when this is a step of the search flow: the app bar above it
+    // already asks the question, and two headings stacked read as two
+    // screens that failed to merge.
+    showTitle: Boolean = true,
 ) {
     val words = LocalWords.current
 
@@ -77,7 +81,9 @@ fun TravellersPicker(
         modifier = Modifier.fillMaxSize().background(Ink.canvas).padding(Space.s4),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
-        Text(words.travellers, style = MaterialTheme.typography.headlineSmall)
+        if (showTitle) {
+            Text(words.travellers, style = MaterialTheme.typography.headlineSmall)
+        }
 
         Column(
             modifier = Modifier

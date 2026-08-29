@@ -42,12 +42,18 @@ import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.Lang
+import pro.qasdatrip.core.DeviceKey
 import pro.qasdatrip.core.ManageKey
 import pro.qasdatrip.core.QasdaApi
 import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.Words
 
 private const val SEARCH = "search"
+private const val PICK_FROM = "pick-from"
+private const val PICK_TO = "pick-to"
+private const val PICK_DATES = "pick-dates"
+private const val PICK_TRAVELLERS = "pick-travellers"
+private const val REVIEW = "review"
 private const val RESULTS = "results"
 private const val DETAILS = "details"
 private const val CALENDAR = "calendar"
@@ -58,6 +64,7 @@ private const val ABOUT = "about"
 private const val TRACKING = "tracking"
 private const val TRACK_NEW = "track-new"
 private const val TRACK_HISTORY = "track-history"
+private const val NOTIFICATIONS = "notifications"
 
 /**
  * The hosts a manage link can arrive from. dev is here because that is where
@@ -96,6 +103,8 @@ fun QasdaNavHost(
     onRemember: (SearchQuery) -> Unit = {},
     manageKey: ManageKey? = null,
     onManageKey: (ManageKey?) -> Unit = {},
+    readDevice: () -> DeviceKey? = { null },
+    onDeviceKey: (DeviceKey?) -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -108,10 +117,22 @@ fun QasdaNavHost(
     })
     val state by vm.state.collectAsStateWithLifecycle()
 
+    // The half-finished question, owned above the five pages that fill it in
+    // so walking between them cannot lose it.
+    val form: SearchFormViewModel = viewModel()
+    val draft by form.draft.collectAsStateWithLifecycle()
+
     val tracking: TrackingViewModel = viewModel(factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            TrackingViewModel(api, readKey = { manageKey }, writeKey = onManageKey) as T
+            TrackingViewModel(
+                api,
+                readKey = { manageKey },
+                writeKey = onManageKey,
+                readDevice = readDevice,
+                writeDevice = onDeviceKey,
+                locale = { lang.tag },
+            ) as T
     })
     val trackState by tracking.state.collectAsStateWithLifecycle()
 
@@ -234,14 +255,100 @@ fun QasdaNavHost(
             startDestination = SEARCH,
             modifier = Modifier.padding(padding),
         ) {
+            // The staged search: home, then one page per answer, then a look
+            // at all four before four sites are asked.
+            val runSearch: () -> Unit = {
+                val query = draft.toQuery()
+                onRemember(query)
+                vm.search(query)
+                nav.navigate(RESULTS) { popUpTo(SEARCH) }
+            }
             composable(SEARCH) {
                 SearchScreen(
+                    draft = draft,
                     recent = recent,
-                    onSearch = { query ->
-                        onRemember(query)
-                        vm.search(query)
-                        nav.navigate(RESULTS)
+                    onRoundTrip = { form.roundTrip(it) },
+                    onSwap = { form.swap() },
+                    onPickFrom = { nav.navigate(PICK_FROM) },
+                    onPickTo = { nav.navigate(PICK_TO) },
+                    onPickDates = { nav.navigate(PICK_DATES) },
+                    onPickTravellers = { nav.navigate(PICK_TRAVELLERS) },
+                    onSearch = runSearch,
+                    onRecent = { past ->
+                        // A trip whose date has gone is still a useful
+                        // shortcut — the route and the passengers are right —
+                        // so it fills the form and asks for a new date rather
+                        // than searching a day that has passed and coming back
+                        // with nothing.
+                        val stillAhead = past.departDate >= java.time.LocalDate.now().toString()
+                        form.load(past, keepDates = stillAhead)
+                        if (stillAhead) {
+                            onRemember(past)
+                            vm.search(past)
+                            nav.navigate(RESULTS)
+                        } else {
+                            nav.navigate(PICK_DATES)
+                        }
                     },
+                )
+            }
+            composable(PICK_FROM) {
+                AirportStepScreen(
+                    originSide = true,
+                    step = 1,
+                    subtitle = null,
+                    onPick = { airport ->
+                        form.from(airport.iata)
+                        // Forward, not back: the point of a staged flow is
+                        // that answering one question offers the next.
+                        nav.navigate(PICK_TO) { popUpTo(SEARCH) }
+                    },
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(PICK_TO) {
+                AirportStepScreen(
+                    originSide = false,
+                    step = 2,
+                    subtitle = cityName(draft.from, lang),
+                    onPick = { airport ->
+                        form.to(airport.iata)
+                        nav.navigate(PICK_DATES) { popUpTo(SEARCH) }
+                    },
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(PICK_DATES) {
+                DatesScreen(
+                    depart = draft.depart,
+                    back = draft.back,
+                    roundTrip = draft.roundTrip,
+                    routeSubtitle = routeLine(draft, lang),
+                    onPick = { d, b -> form.dates(d, b) },
+                    onConfirm = { nav.navigate(PICK_TRAVELLERS) { popUpTo(SEARCH) } },
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(PICK_TRAVELLERS) {
+                TravellersStepScreen(
+                    draft = draft,
+                    subtitle = routeLine(draft, lang),
+                    onApply = { a, c, i, cabin ->
+                        form.travellers(a, c, i, cabin)
+                        nav.navigate(REVIEW) { popUpTo(SEARCH) }
+                    },
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(REVIEW) {
+                ReviewScreen(
+                    draft = draft,
+                    onEditFrom = { nav.navigate(PICK_FROM) },
+                    onEditTo = { nav.navigate(PICK_TO) },
+                    onEditDates = { nav.navigate(PICK_DATES) },
+                    onEditTravellers = { nav.navigate(PICK_TRAVELLERS) },
+                    onSearch = runSearch,
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(RESULTS) {
@@ -256,7 +363,13 @@ fun QasdaNavHost(
                     // what the details screen is for.
                     onBook = { openBooking(it, null) },
                     onRetry = { vm.retry() },
-                    onEdit = { nav.popBackStack() },
+                    onEdit = {
+                        state.query?.let { form.load(it, keepDates = true) }
+                        nav.navigate(SEARCH) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                        }
+                    },
                     onFilters = { vm.filter(it) },
                     onSort = { vm.sortBy(it) },
                     onCalendar = {
@@ -328,16 +441,36 @@ fun QasdaNavHost(
                 }
                 TrackingScreen(
                     state = trackState,
+                    onNotifications = { nav.navigate(NOTIFICATIONS) },
                     onOpen = { watch ->
                         tracking.open(watch)
                         nav.navigate(TRACK_HISTORY)
                     },
                     onStop = { tracking.stop(it) },
-                    onLink = { url -> tracking.useLink(url) },
                     onNew = {
                         tracking.resetForm()
                         nav.navigate(TRACK_NEW)
                     },
+                )
+            }
+            composable(NOTIFICATIONS) {
+                NotificationsScreen(
+                    state = trackState,
+                    onLoad = { tracking.loadAlerts() },
+                    onOpen = { alert ->
+                        // Every message links back to a live search rather
+                        // than restating its own number: the price it carries
+                        // was true when it was observed, and re-running the
+                        // question is the only thing that can say what the
+                        // route costs now.
+                        val query = trackState.watches.firstOrNull { it.id == alert.watchId }?.asQuery()
+                        if (query != null) {
+                            onRemember(query)
+                            vm.search(query)
+                            nav.navigate(RESULTS)
+                        }
+                    },
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(TRACK_NEW) {
@@ -358,15 +491,21 @@ fun QasdaNavHost(
                 } else {
                     TrackScreen(
                         query = query,
-                        currentCheapest = state.flights.mapNotNull { it.cheapest?.second }.minOrNull()
+                        // The number that was on screen. Null when the search
+                        // came back empty, which is not a missing answer — it
+                        // is the other kind of watch.
+                        seenPrice = state.flights.mapNotNull { it.cheapest?.second }.minOrNull()
                             ?.takeIf { state.query == query },
                         state = trackState,
-                        onCreate = { email, target ->
-                            tracking.create(query, email, lang.tag, target)
-                        },
+                        onTrack = { seen -> tracking.track(query, seen) },
                         onDone = {
                             tracking.resetForm()
                             nav.popBackStack()
+                            nav.navigate(TRACKING) {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onBack = { nav.popBackStack() },
                     )

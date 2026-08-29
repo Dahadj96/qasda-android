@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import pro.qasdatrip.core.Alert
+import pro.qasdatrip.core.DeviceKey
 import pro.qasdatrip.core.ManageKey
 import pro.qasdatrip.core.PriceTrend
 import pro.qasdatrip.core.QasdaApi
@@ -15,17 +17,25 @@ import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.Watch
 
 /**
- * Watching routes, without an account.
+ * Watching routes, without an account and now without an address either.
  *
- * The whole model is a mailbox: an address is given, a confirmation mail goes
- * out, and the link in it carries a signed pair that grants exactly that
- * mailbox's alerts. This holds that pair once it has arrived, and nothing
- * else about the person.
+ * The old model was a mailbox: type an address, wait for a confirmation
+ * mail, follow the link. On a phone every one of those steps is a place to
+ * give up, and none of them buys anything — the app is already a channel
+ * that can reach this person. So the install registers itself, keeps the key
+ * it gets back, and that is the whole credential.
+ *
+ * The manage key is still read and still honoured. Somebody who set alerts
+ * up on the website and opened one of those links here has watches, and
+ * taking them away to simplify a ViewModel would be a poor trade.
  */
 class TrackingViewModel(
     private val api: QasdaApi,
     private val readKey: () -> ManageKey?,
     private val writeKey: (ManageKey?) -> Unit,
+    private val readDevice: () -> DeviceKey? = { null },
+    private val writeDevice: (DeviceKey?) -> Unit = {},
+    private val locale: () -> String = { "fr" },
 ) : ViewModel() {
 
     /** Where the create form is in its short life. */
@@ -33,6 +43,9 @@ class TrackingViewModel(
 
     data class State(
         val key: ManageKey? = null,
+        val device: DeviceKey? = null,
+        /** Nothing can be watched until the install has an identity. */
+        val registering: Boolean = false,
         val watches: List<Watch> = emptyList(),
         val loading: Boolean = false,
         /** The link was refused: it is stale, tampered with, or the secret rotated. */
@@ -40,19 +53,54 @@ class TrackingViewModel(
         val stage: Stage = Stage.EDITING,
         val sentTo: String? = null,
         val needsConfirmation: Boolean = true,
+        val alerts: List<Alert> = emptyList(),
+        val alertsLoading: Boolean = false,
         val trend: PriceTrend? = null,
         val trendLoading: Boolean = false,
         val openWatch: Watch? = null,
     )
 
-    private val _state = MutableStateFlow(State(key = readKey()))
+    private val _state = MutableStateFlow(State(key = readKey(), device = readDevice()))
     val state: StateFlow<State> = _state.asStateFlow()
 
     private var listJob: Job? = null
     private var trendJob: Job? = null
+    private var alertsJob: Job? = null
+    private var registerJob: Job? = null
 
     init {
-        if (_state.value.key != null) refresh()
+        register()
+        if (_state.value.key != null || _state.value.device != null) refresh()
+    }
+
+    /**
+     * Make sure this install has an identity, and refresh what the server
+     * knows about it.
+     *
+     * Runs on every launch rather than only the first: the push token
+     * rotates, and the cheapest way to keep it current is to send it
+     * alongside a registration that is idempotent anyway. When the server
+     * cannot be reached this quietly does nothing — the app still works, and
+     * only tracking is unavailable until it can.
+     */
+    fun register(pushToken: String? = null) {
+        if (_state.value.registering) return
+        registerJob?.cancel()
+        _state.update { it.copy(registering = true) }
+        registerJob = viewModelScope.launch {
+            val key = api.registerDevice(
+                existing = _state.value.device,
+                pushToken = pushToken,
+                locale = locale(),
+            )
+            if (key != null) {
+                writeDevice(key)
+                _state.update { it.copy(device = key, registering = false) }
+                refresh()
+            } else {
+                _state.update { it.copy(registering = false) }
+            }
+        }
     }
 
     /**
@@ -62,7 +110,7 @@ class TrackingViewModel(
      * listed here, and this is a handful of rows behind a signed link.
      */
     fun refresh() {
-        val key = _state.value.key ?: return
+        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
         listJob?.cancel()
         _state.update { it.copy(loading = true) }
         listJob = viewModelScope.launch {
@@ -97,16 +145,35 @@ class TrackingViewModel(
         _state.update { it.copy(key = null, watches = emptyList(), keyRejected = false) }
     }
 
-    fun create(query: SearchQuery, email: String, locale: String, targetPrice: Double?) {
+    /**
+     * Watch this route and date.
+     *
+     * `seenPrice` is the number that was on screen when the button was
+     * pressed, and it is the whole rule: cheaper than that, and the phone
+     * says so. A null price is not a missing answer — it means the search
+     * came back empty, and the watch becomes the other kind: tell me when a
+     * seat appears.
+     *
+     * Nothing is typed and nothing is confirmed, so there is no SENT state
+     * that means "we have emailed you". It either exists now or it does not.
+     */
+    fun track(query: SearchQuery, seenPrice: Double?) {
+        val device = _state.value.device
+        if (device == null) {
+            // No identity yet: try once more, and let the screen stay on its
+            // failed state rather than pretending the watch was made.
+            register()
+            _state.update { it.copy(stage = Stage.FAILED) }
+            return
+        }
         _state.update { it.copy(stage = Stage.SENDING) }
         viewModelScope.launch {
-            val result = api.createWatch(query, email.trim(), locale, targetPrice)
-            _state.update {
-                if (result?.created == true) {
-                    it.copy(stage = Stage.SENT, sentTo = email.trim(), needsConfirmation = result.needsConfirmation)
-                } else {
-                    it.copy(stage = Stage.FAILED)
-                }
+            val result = api.trackRoute(device, query, seenPrice, locale())
+            if (result?.created == true) {
+                _state.update { it.copy(stage = Stage.SENT, needsConfirmation = false) }
+                refresh()
+            } else {
+                _state.update { it.copy(stage = Stage.FAILED) }
             }
         }
     }
@@ -117,7 +184,7 @@ class TrackingViewModel(
     }
 
     fun stop(watchId: Long) {
-        val key = _state.value.key ?: return
+        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
         viewModelScope.launch {
             if (api.cancelWatch(key, watchId)) {
                 // Drop it locally rather than re-listing: the server has
@@ -125,6 +192,23 @@ class TrackingViewModel(
                 // that flickers.
                 _state.update { s -> s.copy(watches = s.watches.filterNot { it.id == watchId }) }
             }
+        }
+    }
+
+    /**
+     * What we have already told this device.
+     *
+     * Re-read every time the screen opens, like the watch list: a phone that
+     * was offline when a price moved should see the message the first time it
+     * can, not the first time it happens to be launched afterwards.
+     */
+    fun loadAlerts() {
+        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
+        alertsJob?.cancel()
+        _state.update { it.copy(alertsLoading = true) }
+        alertsJob = viewModelScope.launch {
+            val rows = api.alerts(key)
+            _state.update { it.copy(alerts = rows.orEmpty(), alertsLoading = false) }
         }
     }
 

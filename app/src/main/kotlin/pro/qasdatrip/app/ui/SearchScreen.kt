@@ -10,110 +10,66 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import pro.qasdatrip.app.R
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalLang
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
-import pro.qasdatrip.core.Airport
-import pro.qasdatrip.core.Airports
-import pro.qasdatrip.core.Cabin
+import pro.qasdatrip.core.Lang
 import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.routeArrow
-import java.time.LocalDate
 
 /**
- * The search, in the order somebody fills it in: where from, where to, when,
- * and how many.
+ * Home: the whole question on one card, and every answer a page of its own.
+ *
+ * The card is still here because it is the fastest path for somebody
+ * repeating a trip they have taken before — Alger to Paris is already filled
+ * in and two taps away from results. What changed is what a field does when
+ * you touch it. It used to open a dialog stacked on this screen; now it
+ * navigates, to a page with a question at the top, a step bar under it, and
+ * room for the list or the calendar the question actually needs.
  */
 @Composable
 fun SearchScreen(
+    draft: SearchDraft,
     recent: List<SearchQuery> = emptyList(),
-    today: String = LocalDate.now().toString(),
-    onSearch: (SearchQuery) -> Unit,
+    onRoundTrip: (Boolean) -> Unit,
+    onSwap: () -> Unit,
+    onPickFrom: () -> Unit,
+    onPickTo: () -> Unit,
+    onPickDates: () -> Unit,
+    onPickTravellers: () -> Unit,
+    onSearch: () -> Unit,
+    onRecent: (SearchQuery) -> Unit,
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
-
-    var from by remember { mutableStateOf("ALG") }
-    var to by remember { mutableStateOf("CDG") }
-    var depart by remember { mutableStateOf<String?>(null) }
-    var back by remember { mutableStateOf<String?>(null) }
-    var roundTrip by remember { mutableStateOf(false) }
-    var adults by remember { mutableStateOf(1) }
-    var children by remember { mutableStateOf(0) }
-    var infants by remember { mutableStateOf(0) }
-    var cabin by remember { mutableStateOf(Cabin.ECONOMY) }
-    var picking by remember { mutableStateOf<String?>(null) }
-    var pickingDates by remember { mutableStateOf(false) }
-    var pickingTravellers by remember { mutableStateOf(false) }
-
-    if (pickingTravellers) {
-        TravellersPicker(
-            adults = adults,
-            children = children,
-            infants = infants,
-            cabin = cabin,
-            onApply = { a, c, i, klass ->
-                adults = a; children = c; infants = i; cabin = klass
-                pickingTravellers = false
-            },
-        )
-        return
-    }
-
-    if (pickingDates) {
-        DatesDialog(
-            roundTrip = roundTrip,
-            depart = depart,
-            back = back,
-            onDismiss = { pickingDates = false },
-            onPick = { d, b ->
-                depart = d
-                back = if (roundTrip) b else null
-                pickingDates = false
-            },
-        )
-    }
-
-    if (picking != null) {
-        AirportPicker(
-            originSide = picking == "from",
-            onPick = { airport ->
-                if (picking == "from") from = airport.iata else to = airport.iata
-                picking = null
-            },
-            onDismiss = { picking = null },
-        )
-        return
-    }
 
     Column(
         modifier = Modifier
@@ -134,13 +90,8 @@ fun SearchScreen(
         OfflineBanner()
 
         TripToggle(
-            roundTrip = roundTrip,
-            onChange = { wantsReturn ->
-                roundTrip = wantsReturn
-                // Switching to one way drops a return that is no longer part
-                // of the question being asked.
-                if (!wantsReturn) back = null
-            },
+            roundTrip = draft.roundTrip,
+            onChange = onRoundTrip,
         )
 
         // One card, not five loose boxes. The four fields and the button are
@@ -155,44 +106,68 @@ fun SearchScreen(
                 .padding(Space.s3),
             verticalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
-            Field(label = words.from, value = "${cityName(from, lang)} ($from)") { picking = "from" }
-            Field(label = words.to, value = "${cityName(to, lang)} ($to)") { picking = "to" }
+            // The swap control sits over the seam between the two fields,
+            // which is where the journey turns around. Somebody going home
+            // after a holiday is running the same search backwards, and
+            // making them retype both ends of it is work we can do for them.
+            Box {
+                Column(verticalArrangement = Arrangement.spacedBy(Space.s2)) {
+                    Field(
+                        label = words.from,
+                        value = "${cityName(draft.from, lang)} (${draft.from})",
+                        trailingSpace = true,
+                        onClick = onPickFrom,
+                    )
+                    Field(
+                        label = words.to,
+                        value = "${cityName(draft.to, lang)} (${draft.to})",
+                        trailingSpace = true,
+                        onClick = onPickTo,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(x = (-10).dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Ink.surface)
+                        .border(1.dp, Ink.lineStrong, CircleShape)
+                        .clickable(onClick = onSwap)
+                        .semantics { contentDescription = words.swapRoute },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_swap),
+                        contentDescription = null,
+                        tint = Ink.ink,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
 
             // Dates and travellers share a row: both are short answers, and
             // giving each a full-width box pushes the button off the fold on
             // a small phone.
             Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
                 Field(
-                    label = if (roundTrip) words.dates else words.outbound,
-                    value = datesLabel(depart, back, roundTrip, lang, words.chooseDates),
-                    muted = depart == null,
+                    label = if (draft.roundTrip) words.dates else words.outbound,
+                    value = datesLabel(draft, lang, words.chooseDates),
+                    muted = draft.depart == null,
                     modifier = Modifier.weight(1f),
-                ) { pickingDates = true }
-
+                    onClick = onPickDates,
+                )
                 Field(
                     label = words.travellers,
-                    value = "${Money.isolate((adults + children + infants).toString())} · ${cabinName(cabin, words)}",
+                    value = "${Money.isolate(draft.travellers.toString())} · ${cabinLabel(draft.cabin, words)}",
                     modifier = Modifier.weight(1f),
-                ) { pickingTravellers = true }
+                    onClick = onPickTravellers,
+                )
             }
 
             Button(
-                onClick = {
-                    onSearch(
-                        SearchQuery(
-                            from = from, to = to,
-                            departDate = depart.orEmpty(),
-                            returnDate = back.takeIf { roundTrip },
-                            adults = adults,
-                            children = children,
-                            infants = infants,
-                            cabin = cabin,
-                        ),
-                    )
-                },
-                // A round trip without a return is half a question: the server
-                // would answer it as a one-way and quote the wrong thing.
-                enabled = depart != null && (!roundTrip || back != null) && from != to,
+                onClick = onSearch,
+                enabled = draft.complete,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -214,24 +189,7 @@ fun SearchScreen(
                 color = Ink.muted,
             )
             recent.take(3).forEach { past ->
-                RecentRow(past, lang) {
-                    from = past.from
-                    to = past.to
-                    roundTrip = past.roundTrip
-                    adults = past.adults
-                    children = past.children
-                    infants = past.infants
-                    cabin = past.cabin
-
-                    // A trip whose date has gone is still a useful shortcut -
-                    // the route and the passengers are right - so it fills the
-                    // form and asks for a new date rather than searching a day
-                    // that has passed and coming back with nothing.
-                    val stillAhead = past.departDate >= today
-                    depart = past.departDate.takeIf { stillAhead }
-                    back = past.returnDate?.takeIf { stillAhead }
-                    if (stillAhead) onSearch(past)
-                }
+                RecentRow(past, lang) { onRecent(past) }
             }
         }
     }
@@ -242,7 +200,7 @@ fun SearchScreen(
  * it was true on the day, and a stale number beside a route reads as a quote.
  */
 @Composable
-private fun RecentRow(query: SearchQuery, lang: pro.qasdatrip.core.Lang, onPick: () -> Unit) {
+private fun RecentRow(query: SearchQuery, lang: Lang, onPick: () -> Unit) {
     val words = LocalWords.current
     Row(
         modifier = Modifier
@@ -264,7 +222,7 @@ private fun RecentRow(query: SearchQuery, lang: pro.qasdatrip.core.Lang, onPick:
                 listOfNotNull(
                     formatDate(query.departDate, lang),
                     query.returnDate?.let { formatDate(it, lang) },
-                    Money.isolate(query.travellers.toString()) + " · " + cabinName(query.cabin, words),
+                    Money.isolate(query.travellers.toString()) + " · " + cabinLabel(query.cabin, words),
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Ink.muted,
@@ -282,14 +240,15 @@ private fun RecentRow(query: SearchQuery, lang: pro.qasdatrip.core.Lang, onPick:
 /**
  * A field inside the search card: its label above, its answer below, in a
  * box with an 8dp corner. Not a text input — every one of these opens a
- * picker, because every one of them has a wrong answer that a keyboard
- * would happily accept.
+ * page, because every one of them has a wrong answer that a keyboard would
+ * happily accept.
  */
 @Composable
 private fun Field(
     label: String,
     value: String,
     muted: Boolean = false,
+    trailingSpace: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -300,7 +259,14 @@ private fun Field(
             .background(Ink.surface)
             .border(1.dp, Ink.line, RoundedCornerShape(Radius.sm))
             .clickable(onClick = onClick)
-            .padding(horizontal = Space.s3, vertical = 10.dp),
+            .padding(
+                start = Space.s3,
+                // Room for the swap circle that overlaps this edge, so a long
+                // airport name never runs underneath it.
+                end = if (trailingSpace) 52.dp else Space.s3,
+                top = 10.dp,
+                bottom = 10.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = Ink.muted, maxLines = 1)
@@ -309,7 +275,7 @@ private fun Field(
             style = MaterialTheme.typography.titleMedium,
             color = if (muted) Ink.muted else Ink.ink,
             maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -355,82 +321,9 @@ private fun TripToggle(roundTrip: Boolean, onChange: (Boolean) -> Unit) {
  * trip with no return yet still shows the departure, so the field reflects
  * the half-answer rather than pretending nothing was picked.
  */
-private fun datesLabel(
-    depart: String?,
-    back: String?,
-    roundTrip: Boolean,
-    lang: pro.qasdatrip.core.Lang,
-    placeholder: String,
-): String = when {
-    depart == null -> placeholder
-    roundTrip && back != null -> "${formatDate(depart, lang)} – ${formatDate(back, lang)}"
-    else -> formatDate(depart, lang)
-}
-
-private fun cabinName(cabin: Cabin, words: pro.qasdatrip.core.Words): String = when (cabin) {
-    Cabin.ECONOMY -> words.economy
-    Cabin.PREMIUM -> words.premium
-    Cabin.BUSINESS -> words.business
-    Cabin.FIRST -> words.first
-}
-
-/**
- * The picker, with the matching from the shared module: أدرار and ادرار are
- * the same query, so are Séville and seville, and an airport answers to the
- * commune the databases file it under as well as to its own name.
- */
-@Composable
-fun AirportPicker(originSide: Boolean, onPick: (Airport) -> Unit, onDismiss: () -> Unit) {
-    val words = LocalWords.current
-    val lang = LocalLang.current
-    var query by remember { mutableStateOf("") }
-    val results = remember(query) {
-        if (query.isBlank()) Airports.suggestions(originSide) else Airports.search(query)
-    }
-
-    Column(modifier = Modifier.fillMaxSize().background(Ink.canvas).padding(Space.s4)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text(words.searchCity) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (results.isEmpty()) {
-            Text(
-                words.noAirport,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Ink.muted,
-                modifier = Modifier.padding(Space.s4),
-            )
-        }
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            itemsIndexed(results, key = { i, a -> "$i:${a.iata}" }) { _, airport ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onPick(airport) }
-                        .padding(vertical = Space.s3),
-                    horizontalArrangement = Arrangement.spacedBy(Space.s3),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        airport.iata,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Ink.inkSoft,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Radius.sm))
-                            .background(Ink.surfaceSoft)
-                            .padding(horizontal = Space.s2, vertical = Space.s1),
-                    )
-                    Column {
-                        Text(airport.cityIn(lang), style = MaterialTheme.typography.titleMedium)
-                        if (airport.name.isNotEmpty()) {
-                            Text(airport.name, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
-                        }
-                    }
-                }
-            }
-        }
-    }
+private fun datesLabel(draft: SearchDraft, lang: Lang, placeholder: String): String = when {
+    draft.depart == null -> placeholder
+    draft.roundTrip && draft.back != null ->
+        "${formatDate(draft.depart, lang)} – ${formatDate(draft.back, lang)}"
+    else -> formatDate(draft.depart, lang)
 }
