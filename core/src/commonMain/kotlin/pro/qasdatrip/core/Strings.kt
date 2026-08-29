@@ -176,6 +176,10 @@ data class Words(
     val swapRoute: String,
     val pickReturn: String,
     val stepOf: String,             // {n} {total}
+    val itineraryLabel: String,
+    val layoverAt: String,          // {time} {airport}
+    val layoverDeparts: String,     // {time}
+    val overnightStop: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -298,6 +302,10 @@ data class Words(
                 swapRoute = "Inverser le départ et l’arrivée",
                 pickReturn = "Choisir le retour",
                 stepOf = "Étape {n} sur {total}",
+                itineraryLabel = "Itinéraire",
+                layoverAt = "{time} d’escale à {airport}",
+                layoverDeparts = "repart à {time}",
+                overnightStop = "nuit sur place",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -418,6 +426,10 @@ data class Words(
                 swapRoute = "عكس المغادرة والوجهة",
                 pickReturn = "اختر تاريخ العودة",
                 stepOf = "الخطوة {n} من {total}",
+                itineraryLabel = "خط الرحلة",
+                layoverAt = "{time} توقف في {airport}",
+                layoverDeparts = "المغادرة {time}",
+                overnightStop = "مبيت في المطار",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -538,6 +550,10 @@ data class Words(
                 swapRoute = "Swap departure and destination",
                 pickReturn = "Choose the return",
                 stepOf = "Step {n} of {total}",
+                itineraryLabel = "Itinerary",
+                layoverAt = "{time} layover in {airport}",
+                layoverDeparts = "departs {time}",
+                overnightStop = "overnight on the ground",
             )
         }
     }

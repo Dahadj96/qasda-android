@@ -48,6 +48,8 @@ import pro.qasdatrip.core.Segment
 import pro.qasdatrip.core.Sites
 import pro.qasdatrip.core.Words
 import pro.qasdatrip.core.arrivalDayOffset
+import pro.qasdatrip.core.formatMinutes
+import pro.qasdatrip.core.layovers
 import pro.qasdatrip.core.stopCount
 
 /**
@@ -174,17 +176,29 @@ private fun DetailsBar(flight: Flight, onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Space.s4, vertical = Space.s3),
-        horizontalArrangement = Arrangement.spacedBy(Space.s4),
+        horizontalArrangement = Arrangement.spacedBy(Space.s3),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Auto-mirrored: in Arabic the arrow has to point the other way, and
-        // a typed "←" would not turn around.
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = null,
-            tint = Ink.ink,
-            modifier = Modifier.size(22.dp).clickable(onClick = onBack),
-        )
+        // a typed "←" would not turn around. In a circle because it is the
+        // most-pressed control on the screen.
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(Radius.pill))
+                .background(Ink.surface)
+                .border(1.dp, Ink.line, RoundedCornerShape(Radius.pill))
+                .clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = Ink.ink,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        AirlineLogo(code = airline, size = 36.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 Airlines.name(airline),
@@ -199,7 +213,7 @@ private fun DetailsBar(flight: Flight, onBack: () -> Unit) {
             if (subtitle.isNotEmpty()) {
                 Text(
                     Money.isolate(subtitle),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = Ink.muted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -210,16 +224,32 @@ private fun DetailsBar(flight: Flight, onBack: () -> Unit) {
 }
 
 /**
- * A leg read top to bottom: leave here, fly this long, arrive there.
+ * A leg read top to bottom, stop by stop.
  *
- * The middle band is tinted rather than ruled, because what is in it — the
- * duration and the stops — is the thing between the two ends, and a band
- * says that better than a line does.
+ * This is the screen you asked for, and the reason is one real itinerary:
+ * Nouvelair ALG to CDG, "25h 20m · 1 escale" on the card, and nothing
+ * anywhere in the app saying that nineteen of those hours are spent sitting
+ * in Tunis. The card cannot say it — there is no room, and a card is a
+ * summary. The detail page can, and until now it did not either: it listed
+ * "BJ 131 · ALG → TUN" and "BJ 794 · TUN → CDG" and left the gap between
+ * them for the reader to work out.
+ *
+ * So the leg is drawn as what it is: a sequence of places, with the time on
+ * the ground written between them. A wait over four hours is tinted amber
+ * and a wait that runs through the night says so, because those two change
+ * what a trip costs a person in a way the price never mentions.
+ *
+ * When the numbers do not agree — a duration that cannot be reconciled with
+ * the clock times — nothing is drawn rather than a guess. Somebody books
+ * around a layover, and a wrong one is worse than none.
  */
 @Composable
 private fun LegCard(leg: Leg, label: String?) {
     val words = LocalWords.current
     val lang = LocalLang.current
+    val stops = leg.layovers()
+    val hops = leg.segments
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -235,30 +265,154 @@ private fun LegCard(leg: Leg, label: String?) {
                 modifier = Modifier.padding(start = Space.s4, top = Space.s3),
             )
         }
-        Endpoint(time = leg.departure, iata = leg.origin, lang = lang)
 
+        if (hops.size > 1) {
+            Endpoint(time = hops.first().departure, iata = hops.first().origin, lang = lang)
+            hops.forEachIndexed { index, hop ->
+                SegmentBand(hop)
+                if (index < hops.size - 1) {
+                    Endpoint(time = hop.arrival, iata = hop.destination, lang = lang, hollow = true)
+                    stops.getOrNull(index)?.let { stop ->
+                        LayoverRow(
+                            minutes = stop.minutes,
+                            airport = stop.airport,
+                            long = stop.long,
+                            overnight = stop.overnight,
+                            departsAt = hops[index + 1].departure,
+                            lang = lang,
+                        )
+                    }
+                }
+            }
+            Endpoint(
+                time = hops.last().arrival,
+                iata = hops.last().destination,
+                lang = lang,
+                leg = leg,
+            )
+        } else {
+            Endpoint(time = leg.departure, iata = leg.origin, lang = lang)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Ink.surfaceSoft)
+                    .padding(horizontal = Space.s4, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    listOfNotNull(leg.duration?.let(Money::isolate), stopsText(leg.stopCount, words))
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Ink.muted,
+                    modifier = Modifier.padding(start = 72.dp + Space.s3 - Space.s4 + 8.dp),
+                )
+            }
+            Endpoint(time = leg.arrival, iata = leg.destination, lang = lang, leg = leg)
+        }
+
+        Hairline()
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Ink.surfaceSoft)
-                .padding(horizontal = Space.s4, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(Space.s4),
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
             Text(
                 listOfNotNull(leg.duration?.let(Money::isolate), stopsText(leg.stopCount, words))
                     .joinToString(" · "),
                 style = MaterialTheme.typography.labelMedium,
-                color = Ink.muted,
-                modifier = Modifier.padding(start = 72.dp + Space.s3 - Space.s4 + 8.dp),
+                color = Ink.inkSoft,
             )
         }
+    }
+}
 
-        Endpoint(time = leg.arrival, iata = leg.destination, lang = lang, leg = leg)
+/**
+ * The flight between two of the stops: which aircraft, on whose metal.
+ *
+ * Indented to sit under the timeline's dots rather than beside them, so the
+ * column of times stays a column and the eye can run down it.
+ */
+@Composable
+private fun SegmentBand(segment: Segment) {
+    val words = LocalWords.current
+    val operating = segment.operatingAirline ?: segment.marketingAirline
+    val line = listOfNotNull(
+        segment.flightNo?.takeIf { it.isNotBlank() },
+        segment.aircraftName?.takeIf { it.isNotBlank() } ?: segment.aircraft?.takeIf { it.isNotBlank() },
+    ).joinToString(" · ")
+    if (line.isEmpty() && operating == null) return
 
-        if (leg.segments.size > 1) {
-            Hairline()
-            Column(modifier = Modifier.padding(Space.s4), verticalArrangement = Arrangement.spacedBy(Space.s2)) {
-                leg.segments.forEach { segment -> SegmentLine(segment) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 72.dp + Space.s3 + 8.dp, end = Space.s4, bottom = Space.s2),
+    ) {
+        if (line.isNotEmpty()) {
+            Text(Money.isolate(line), style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
+        }
+        // A ticket sold by one carrier and flown by another is not the
+        // experience the brand on the ticket implies.
+        if (segment.marketingAirline != null && operating != segment.marketingAirline) {
+            Text(
+                words.operatedBy.replace("{airline}", Airlines.name(operating)),
+                style = MaterialTheme.typography.labelMedium,
+                color = Ink.notice,
+            )
+        }
+    }
+}
+
+/**
+ * How long the passenger is on the ground here, and when they leave again.
+ *
+ * Amber for anything over four hours, and the same amber with a plain
+ * sentence for a wait that runs through the night. Neutral otherwise: a
+ * ninety-minute connection is normal and does not deserve a warning colour.
+ */
+@Composable
+private fun LayoverRow(
+    minutes: Int,
+    airport: String?,
+    long: Boolean,
+    overnight: Boolean,
+    departsAt: String?,
+    lang: Lang,
+) {
+    val words = LocalWords.current
+    val place = airport?.let { code ->
+        Airports.byIata(code)?.let { "${it.cityIn(lang)} ($code)" } ?: code
+    }.orEmpty()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 72.dp + Space.s3 + 8.dp, end = Space.s4, bottom = Space.s3),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.sm))
+                .background(if (long) Ink.noticeSoft else Ink.surfaceSoft)
+                .padding(horizontal = Space.s3, vertical = 10.dp),
+        ) {
+            Text(
+                words.layoverAt
+                    .replace("{time}", Money.isolate(formatMinutes(minutes)))
+                    .replace("{airport}", place),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (long) Ink.notice else Ink.inkSoft,
+            )
+            val note = listOfNotNull(
+                departsAt?.takeIf { it.isNotBlank() }?.let {
+                    words.layoverDeparts.replace("{time}", Money.isolate(it))
+                },
+                words.overnightStop.takeIf { overnight },
+            ).joinToString(" · ")
+            if (note.isNotEmpty()) {
+                Text(
+                    note,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (long) Ink.notice else Ink.muted,
+                )
             }
         }
     }
@@ -270,7 +424,14 @@ private fun LegCard(leg: Leg, label: String?) {
  * by road and somebody meeting a plane needs to know which.
  */
 @Composable
-private fun Endpoint(time: String?, iata: String?, lang: Lang, leg: Leg? = null) {
+private fun Endpoint(
+    time: String?,
+    iata: String?,
+    lang: Lang,
+    leg: Leg? = null,
+    // A stop is drawn hollow because the passenger does not end there.
+    hollow: Boolean = false,
+) {
     val days = leg?.let { arrivalDayOffset(it.departure, it.arrival, it.duration) } ?: 0
     val airport = iata?.let { Airports.byIata(it) }
     Row(
@@ -299,9 +460,13 @@ private fun Endpoint(time: String?, iata: String?, lang: Lang, leg: Leg? = null)
         }
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(if (hollow) 10.dp else 8.dp)
                 .clip(RoundedCornerShape(Radius.pill))
-                .background(Ink.accentUi),
+                .background(if (hollow) Ink.surface else Ink.accentUi)
+                .then(
+                    if (hollow) Modifier.border(2.dp, Ink.lineStrong, RoundedCornerShape(Radius.pill))
+                    else Modifier
+                ),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -371,33 +536,6 @@ private fun SiteRow(site: String, amount: Double, seats: Int?, best: Boolean) {
     }
 }
 
-/**
- * A segment, and the codeshare rule the site already follows: the airline
- * flying the aeroplane is the one worth naming. A ticket sold by one carrier
- * and flown by another is not the experience the brand on the ticket implies.
- */
-@Composable
-private fun SegmentLine(segment: Segment) {
-    val words = LocalWords.current
-    val operating = segment.operatingAirline ?: segment.marketingAirline
-    val parts = listOfNotNull(
-        segment.flightNo?.takeIf { it.isNotBlank() },
-        segment.origin?.let { o -> segment.destination?.let { d -> "$o → $d" } },
-    ).joinToString(" · ")
-
-    Column {
-        if (parts.isNotEmpty()) {
-            Text(Money.isolate(parts), style = MaterialTheme.typography.bodyMedium, color = Ink.inkSoft)
-        }
-        if (segment.marketingAirline != null && operating != segment.marketingAirline) {
-            Text(
-                words.operatedBy.replace("{airline}", Airlines.name(operating)),
-                style = MaterialTheme.typography.labelMedium,
-                color = Ink.notice,
-            )
-        }
-    }
-}
 
 @Composable
 private fun BaggageCard(flight: Flight) {
