@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One weight of the variable file, pinned on the wght axis.
+
+    Compose's Font(..., variationSettings = ...) went unapplied on HyperOS:
+    every weight came out at the file's default instance, so a screen built
+    from four weights rendered in one. Declaring the instance in a
+    font-family resource takes the framework's own path instead, which
+    applies the axis when the typeface is created.
+--><font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font
+        android:font="@font/cairo_variable"
+        android:fontWeight="600"
+        android:fontStyle="normal"
+        android:fontVariationSettings="'wght' 600" />
+</font-family>

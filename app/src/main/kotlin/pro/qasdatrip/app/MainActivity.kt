@@ -1,5 +1,6 @@
 package pro.qasdatrip.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +21,7 @@ import pro.qasdatrip.app.ui.theme.QasdaTheme
 import pro.qasdatrip.core.Lang
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
             // and null still means "follow the phone" rather than "French".
             var chosen by remember { mutableStateOf(settings.language) }
             var recent by remember { mutableStateOf(settings.recent) }
+            var manageKey by remember { mutableStateOf(settings.manageKey) }
             val lang = chosen ?: Lang.of(resources.configuration.locales[0].language)
 
             // True until the first reading arrives: a screen drawn before the
@@ -56,9 +59,27 @@ class MainActivity : ComponentActivity() {
                             settings.remember(query)
                             recent = settings.recent
                         },
+                        manageKey = manageKey,
+                        onManageKey = { key ->
+                            settings.manageKey = key
+                            manageKey = key
+                        },
                     )
                 }
             }
         }
+    }
+
+    /**
+     * A second link, while we are already running.
+     *
+     * singleTask keeps one instance of this activity, so a link tapped in a
+     * second email arrives here rather than through onCreate. Navigation's
+     * deep-link handling reads the activity's current intent, so replacing
+     * it is what makes the new link land.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 }

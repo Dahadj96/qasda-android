@@ -34,6 +34,10 @@ data class Flight(
             .mapNotNull { (site, value) -> value?.takeIf { it > 0 }?.let { site to it } }
             .minByOrNull { it.second }
 
+    /** How many sites put a real price on this flight. */
+    val quotingSites: Int
+        get() = prices.values.count { it != null && it > 0 }
+
     val outboundOrSelf: Leg?
         get() = outbound ?: Leg(
             flightNo = null, operatingAirline = airline, departure = null, arrival = null,
