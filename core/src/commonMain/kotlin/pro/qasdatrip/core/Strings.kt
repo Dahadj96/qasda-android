@@ -96,6 +96,13 @@ data class Words(
     val offline: String,
     val seatOne: String,
     val edit: String,
+    val priceCalendar: String,
+    val calendarLoading: String,
+    val calendarEmpty: String,
+    val calendarNote: String,
+    val cheapestDay: String,        // {date} {price}
+    val noPriceThatDay: String,
+    val nearbyDates: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -142,6 +149,13 @@ data class Words(
                 version = "Version", recentSearches = "Recherches récentes",
                 offline = "Pas de connexion internet",
                 seatOne = "1 place", edit = "Modifier",
+                priceCalendar = "Calendrier des prix",
+                calendarLoading = "Nous interrogeons les sites pour chaque date. Cela prend un moment.",
+                calendarEmpty = "Aucun prix pour cette période.",
+                calendarNote = "Chaque prix est celui qu’un site a affiché pour cette date. Une date sans prix est une date qu’aucun site n’a cotée.",
+                cheapestDay = "Le moins cher : {date} · {price}",
+                noPriceThatDay = "Aucun prix",
+                nearbyDates = "Dates proches",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -186,6 +200,13 @@ data class Words(
                 version = "الإصدار", recentSearches = "عمليات بحث أخيرة",
                 offline = "لا يوجد اتصال بالإنترنت",
                 seatOne = "مقعد واحد", edit = "تعديل",
+                priceCalendar = "تقويم الأسعار",
+                calendarLoading = "نسأل المواقع عن كل تاريخ. يستغرق هذا لحظة.",
+                calendarEmpty = "لا توجد أسعار لهذه الفترة.",
+                calendarNote = "كل سعر هنا عرضه موقع لذلك التاريخ. التاريخ بلا سعر هو تاريخ لم يسعّره أي موقع.",
+                cheapestDay = "الأرخص: {date} · {price}",
+                noPriceThatDay = "لا سعر",
+                nearbyDates = "تواريخ قريبة",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -230,6 +251,13 @@ data class Words(
                 version = "Version", recentSearches = "Recent searches",
                 offline = "No internet connection",
                 seatOne = "1 seat", edit = "Edit",
+                priceCalendar = "Price calendar",
+                calendarLoading = "Asking the sites about each date. This takes a moment.",
+                calendarEmpty = "No prices for these dates.",
+                calendarNote = "Every price here is one a site showed for that date. A date with no price is a date no site quoted.",
+                cheapestDay = "Cheapest: {date} · {price}",
+                noPriceThatDay = "No price",
+                nearbyDates = "Nearby dates",
             )
         }
     }

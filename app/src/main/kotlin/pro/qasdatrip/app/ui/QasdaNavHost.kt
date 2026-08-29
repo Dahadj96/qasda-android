@@ -43,6 +43,7 @@ import pro.qasdatrip.core.Words
 private const val SEARCH = "search"
 private const val RESULTS = "results"
 private const val DETAILS = "details"
+private const val CALENDAR = "calendar"
 private const val HELP = "help"
 private const val SETTINGS = "settings"
 
@@ -90,6 +91,20 @@ fun QasdaNavHost(
             scope.launch {
                 vm.bookingUrl(flight, site)?.let { url -> openUrl(context, url) }
             }
+        }
+    }
+
+    // Re-run the same search on a different date. Everything else about the
+    // question - route, travellers, cabin - is what somebody already chose,
+    // and only the date is being changed.
+    val searchDate: (String, String?) -> Unit = { depart, back ->
+        state.query?.let { q ->
+            // A one-way calendar hands back no return date, and the query it
+            // came from has none either. Keeping the existing one is what
+            // makes a round-trip pick change only the half that was picked.
+            val next = q.copy(departDate = depart, returnDate = back ?: q.returnDate)
+            onRemember(next)
+            vm.search(next)
         }
     }
 
@@ -163,6 +178,24 @@ fun QasdaNavHost(
                     onEdit = { nav.popBackStack() },
                     onFilters = { vm.filter(it) },
                     onSort = { vm.sortBy(it) },
+                    onCalendar = {
+                        vm.loadCalendar()
+                        nav.navigate(CALENDAR)
+                    },
+                    onPickDate = { depart, back -> searchDate(depart, back) },
+                )
+            }
+            composable(CALENDAR) {
+                CalendarScreen(
+                    calendar = state.calendar,
+                    loading = state.calendarLoading,
+                    chosenDepart = state.query?.departDate,
+                    chosenReturn = state.query?.returnDate,
+                    onPick = { depart, back ->
+                        searchDate(depart, back)
+                        nav.popBackStack()
+                    },
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(DETAILS) {
