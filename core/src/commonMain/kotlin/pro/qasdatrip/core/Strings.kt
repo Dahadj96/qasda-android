@@ -165,6 +165,17 @@ data class Words(
     val helpAndInfo: String,
     val settingsAndAlerts: String,
     val settingsAndAlertsSub: String,
+    val fromQuestion: String,
+    val toQuestion: String,
+    val whenQuestion: String,
+    val whoQuestion: String,
+    val reviewTitle: String,
+    val continueLabel: String,
+    val airportsHere: String,
+    val popularDestinations: String,
+    val swapRoute: String,
+    val pickReturn: String,
+    val stepOf: String,             // {n} {total}
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -276,6 +287,17 @@ data class Words(
                 helpAndInfo = "Aide et informations",
                 settingsAndAlerts = "Réglages et notifications",
                 settingsAndAlertsSub = "Langue, devise, alertes, données",
+                fromQuestion = "D’où partez-vous ?",
+                toQuestion = "Où allez-vous ?",
+                whenQuestion = "Quand partez-vous ?",
+                whoQuestion = "Qui voyage ?",
+                reviewTitle = "Vérifiez votre recherche",
+                continueLabel = "Continuer",
+                airportsHere = "Aéroports en Algérie",
+                popularDestinations = "Destinations fréquentes",
+                swapRoute = "Inverser le départ et l’arrivée",
+                pickReturn = "Choisir le retour",
+                stepOf = "Étape {n} sur {total}",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -385,6 +407,17 @@ data class Words(
                 helpAndInfo = "المساعدة والمعلومات",
                 settingsAndAlerts = "الإعدادات والإشعارات",
                 settingsAndAlertsSub = "اللغة والعملة والتنبيهات والبيانات",
+                fromQuestion = "من أين تسافر؟",
+                toQuestion = "إلى أين تريد الذهاب؟",
+                whenQuestion = "متى تسافر؟",
+                whoQuestion = "من يسافر؟",
+                reviewTitle = "تحقق من بحثك",
+                continueLabel = "متابعة",
+                airportsHere = "مطارات في الجزائر",
+                popularDestinations = "وجهات متكررة",
+                swapRoute = "عكس المغادرة والوجهة",
+                pickReturn = "اختر تاريخ العودة",
+                stepOf = "الخطوة {n} من {total}",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -494,6 +527,17 @@ data class Words(
                 helpAndInfo = "Help and information",
                 settingsAndAlerts = "Settings and notifications",
                 settingsAndAlertsSub = "Language, currency, alerts, data",
+                fromQuestion = "Where are you flying from?",
+                toQuestion = "Where are you going?",
+                whenQuestion = "When are you going?",
+                whoQuestion = "Who is travelling?",
+                reviewTitle = "Check your search",
+                continueLabel = "Continue",
+                airportsHere = "Airports in Algeria",
+                popularDestinations = "Frequent destinations",
+                swapRoute = "Swap departure and destination",
+                pickReturn = "Choose the return",
+                stepOf = "Step {n} of {total}",
             )
         }
     }
