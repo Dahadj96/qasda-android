@@ -1,5 +1,10 @@
 package pro.qasdatrip.app.ui
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +16,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -86,6 +93,16 @@ fun ResultsScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         SearchSummaryBar(state, onEdit)
+        // A bar with no percentage on it. The server deliberately does not say
+        // which sites have answered, so any number here would be invented; what
+        // it can honestly report is that the search is still going.
+        if (state.running) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = Ink.accentDeep,
+                trackColor = Ink.line,
+            )
+        }
         OfflineBanner(modifier = Modifier.padding(horizontal = Space.s4, vertical = Space.s2))
 
         when {
@@ -105,6 +122,20 @@ fun ResultsScreen(
                 onCalendar = onCalendar,
                 onPickDate = onPickDate,
             )
+
+            // Still running and nothing through yet. This case used to fall
+            // into "no flight matches your filters", which is a lie told for
+            // the three seconds before the first site answers.
+            state.running && shown.isEmpty() -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(Space.s4),
+                verticalArrangement = Arrangement.spacedBy(Space.s3),
+            ) {
+                item {
+                    Text(words.comparing, style = MaterialTheme.typography.titleMedium)
+                }
+                items(SkeletonCount) { SkeletonCard() }
+            }
 
             // Filters that match nothing is not the same answer as a route
             // with no flights: the flights are there, the question was too
@@ -127,15 +158,22 @@ fun ResultsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
+                        // While sites are still answering the honest headline
+                        // is what we are doing, with the count as a running
+                        // total beside it. "15 flights" over a list that is
+                        // about to become 30 reads as a finished answer.
                         Text(
-                            words.resultsCount.replace("{n}", Money.isolate(shown.size.toString())),
+                            if (state.running) words.comparing
+                            else words.resultsCount.replace("{n}", Money.isolate(shown.size.toString())),
                             style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         if (state.running) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.padding(start = Space.s3),
-                                strokeWidth = 2.dp,
+                            Text(
+                                words.offersSoFar.replace("{n}", Money.isolate(shown.size.toString())),
+                                style = MaterialTheme.typography.labelLarge,
                                 color = Ink.accentDeep,
+                                modifier = Modifier.padding(start = Space.s3),
                             )
                         }
                     }
@@ -158,9 +196,62 @@ fun ResultsScreen(
                 ) { _, flight ->
                     FlightCard(flight, onOpen = { onOpen(flight) }, onBook = { onBook(flight) })
                 }
+                // The list keeps its length honest while it grows: two grey
+                // cards at the bottom say more is coming without pretending
+                // to know what it will be.
+                if (state.running) {
+                    items(2) { SkeletonCard() }
+                }
             }
         }
     }
+}
+
+private const val SkeletonCount = 4
+
+/**
+ * A card-shaped absence.
+ *
+ * It carries no numbers on purpose. A skeleton that shows a plausible price
+ * teaches people to read the shape before the data arrives, and the first
+ * real price then looks like a change rather than an answer.
+ */
+@Composable
+private fun SkeletonCard() {
+    val shimmer = rememberInfiniteTransition(label = "skeleton")
+    val alpha by shimmer.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "skeletonAlpha",
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.md))
+            .background(Ink.surface)
+            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
+            .padding(Space.s4),
+        verticalArrangement = Arrangement.spacedBy(Space.s3),
+    ) {
+        Bone(widthFraction = 0.45f, alpha = alpha)
+        Bone(widthFraction = 0.75f, alpha = alpha)
+        Bone(widthFraction = 0.35f, alpha = alpha)
+    }
+}
+
+@Composable
+private fun Bone(widthFraction: Float, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(widthFraction)
+            .height(14.dp)
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(Ink.line.copy(alpha = alpha)),
+    )
 }
 
 /**

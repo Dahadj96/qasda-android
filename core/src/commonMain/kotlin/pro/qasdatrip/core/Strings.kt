@@ -103,6 +103,15 @@ data class Words(
     val cheapestDay: String,        // {date} {price}
     val noPriceThatDay: String,
     val nearbyDates: String,
+    val comparing: String,
+    val offersSoFar: String,        // {n}
+    val aboutTitle: String,
+    val aboutTagline: String,
+    val aboutWhat: String,
+    val aboutNotTickets: String,
+    val readMore: String,
+    val faq: String,
+    val cheapestOfSites: String,    // {site} {n}
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -156,6 +165,15 @@ data class Words(
                 cheapestDay = "Le moins cher : {date} · {price}",
                 noPriceThatDay = "Aucun prix",
                 nearbyDates = "Dates proches",
+                comparing = "Nous comparons les offres…",
+                offersSoFar = "{n} offres",
+                aboutTitle = "À propos",
+                aboutTagline = "Le comparateur de vols au départ d’Algérie",
+                aboutWhat = "Qasda interroge en direct les agences algériennes et affiche le prix réel de chaque offre, sans commission ni majoration.",
+                aboutNotTickets = "Nous ne vendons pas de billets : la réservation se fait toujours sur le site de l’agence choisie.",
+                readMore = "En savoir plus",
+                faq = "Questions fréquentes",
+                cheapestOfSites = "{site} · le moins cher des {n} sites",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -207,6 +225,15 @@ data class Words(
                 cheapestDay = "الأرخص: {date} · {price}",
                 noPriceThatDay = "لا سعر",
                 nearbyDates = "تواريخ قريبة",
+                comparing = "نقارن العروض…",
+                offersSoFar = "{n} عروض",
+                aboutTitle = "من نحن",
+                aboutTagline = "مقارنة أسعار الرحلات انطلاقًا من الجزائر",
+                aboutWhat = "يسأل قصدة الوكالات الجزائرية مباشرة ويعرض السعر الحقيقي لكل عرض، دون عمولة ولا زيادة.",
+                aboutNotTickets = "نحن لا نبيع التذاكر: الحجز يتم دائمًا على موقع الوكالة التي تختارها.",
+                readMore = "اقرأ المزيد",
+                faq = "أسئلة شائعة",
+                cheapestOfSites = "{site} · الأرخص من بين {n} مواقع",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -258,6 +285,15 @@ data class Words(
                 cheapestDay = "Cheapest: {date} · {price}",
                 noPriceThatDay = "No price",
                 nearbyDates = "Nearby dates",
+                comparing = "Comparing the offers…",
+                offersSoFar = "{n} offers",
+                aboutTitle = "About",
+                aboutTagline = "Flight prices from Algeria, compared",
+                aboutWhat = "Qasda queries the Algerian agencies live and shows the real price of every offer, with no commission and no markup.",
+                aboutNotTickets = "We do not sell tickets: the booking always happens on the site of the agency you choose.",
+                readMore = "Read more",
+                faq = "Frequently asked questions",
+                cheapestOfSites = "{site} · cheapest of {n} sites",
             )
         }
     }

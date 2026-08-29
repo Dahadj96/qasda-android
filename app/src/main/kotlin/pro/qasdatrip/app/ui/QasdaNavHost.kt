@@ -46,6 +46,7 @@ private const val DETAILS = "details"
 private const val CALENDAR = "calendar"
 private const val HELP = "help"
 private const val SETTINGS = "settings"
+private const val ABOUT = "about"
 
 /** The destinations the bar can reach. Results and details are inside the search one. */
 private enum class Tab(val route: String, val label: (Words) -> String) {
@@ -224,6 +225,22 @@ fun QasdaNavHost(
                     versionName = BuildConfig.VERSION_NAME,
                     onLanguage = onLang,
                     onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
+                    onAbout = { nav.navigate(ABOUT) },
+                )
+            }
+            composable(ABOUT) {
+                AboutScreen(
+                    lang = lang,
+                    versionName = BuildConfig.VERSION_NAME,
+                    onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
+                    onFaq = {
+                        nav.navigate(HELP) {
+                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onBack = { nav.popBackStack() },
                 )
             }
         }
