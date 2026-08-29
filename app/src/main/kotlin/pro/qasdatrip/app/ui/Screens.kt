@@ -59,6 +59,7 @@ import pro.qasdatrip.core.Filters
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.FlightList
 import pro.qasdatrip.core.Money
+import pro.qasdatrip.core.routeArrow
 import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.TimeBand
 import pro.qasdatrip.core.Words
@@ -467,7 +468,7 @@ private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "${cityName(q.from, lang)} → ${cityName(q.to, lang)}",
+                "${cityName(q.from, lang)} ${routeArrow(lang)} ${cityName(q.to, lang)}",
                 style = MaterialTheme.typography.titleLarge,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

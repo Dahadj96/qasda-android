@@ -38,6 +38,7 @@ import pro.qasdatrip.core.CalendarCell
 import pro.qasdatrip.core.FlightCalendar
 import pro.qasdatrip.core.Lang
 import pro.qasdatrip.core.Money
+import pro.qasdatrip.core.routeArrow
 
 /**
  * What the route costs on the days either side of the one that was asked
@@ -60,23 +61,36 @@ fun CalendarScreen(
     chosenReturn: String?,
     onPick: (depart: String, back: String?) -> Unit,
     onBack: () -> Unit,
+    origin: String? = null,
+    destination: String? = null,
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         Row(
-            modifier = Modifier.fillMaxWidth().background(Ink.surface).padding(Space.s4),
-            horizontalArrangement = Arrangement.spacedBy(Space.s3),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s3),
+            horizontalArrangement = Arrangement.spacedBy(Space.s4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
                 tint = Ink.ink,
-                modifier = Modifier.clickable(onClick = onBack),
+                modifier = Modifier.size(22.dp).clickable(onClick = onBack),
             )
-            Text(words.priceCalendar, style = MaterialTheme.typography.titleMedium)
+            Column {
+                Text(words.priceCalendar, style = MaterialTheme.typography.titleLarge)
+                // Which route the grid is about. Somebody who reached this
+                // from a search two taps ago should not have to remember.
+                if (origin != null && destination != null) {
+                    Text(
+                        "${cityName(origin, lang)} ${routeArrow(lang)} ${cityName(destination, lang)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Ink.muted,
+                    )
+                }
+            }
         }
 
         when {

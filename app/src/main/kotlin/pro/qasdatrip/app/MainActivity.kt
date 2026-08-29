@@ -22,19 +22,9 @@ import pro.qasdatrip.core.Lang
 
 class MainActivity : ComponentActivity() {
 
-    /**
-     * A "manage my alerts" link the app was opened with.
-     *
-     * State rather than a field read once, because the same activity can be
-     * handed a second link while it is already running — somebody who taps a
-     * link in one email and then another.
-     */
-    private var opened by mutableStateOf<String?>(null)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        opened = intent?.data?.toString()
         val settings = Settings(this)
         setContent {
             // The phone's language decides until somebody says otherwise, as
@@ -74,8 +64,6 @@ class MainActivity : ComponentActivity() {
                             settings.manageKey = key
                             manageKey = key
                         },
-                        openedWith = opened,
-                        onOpenedWithHandled = { opened = null },
                     )
                 }
             }
@@ -85,12 +73,13 @@ class MainActivity : ComponentActivity() {
     /**
      * A second link, while we are already running.
      *
-     * The launch mode keeps one instance of this activity, so without this a
-     * link tapped in a second email would raise the app and do nothing.
+     * singleTask keeps one instance of this activity, so a link tapped in a
+     * second email arrives here rather than through onCreate. Navigation's
+     * deep-link handling reads the activity's current intent, so replacing
+     * it is what makes the new link land.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        opened = intent.data?.toString()
     }
 }

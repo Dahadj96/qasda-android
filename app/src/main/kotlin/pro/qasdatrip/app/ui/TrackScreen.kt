@@ -39,6 +39,7 @@ import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
 import pro.qasdatrip.core.Money
+import pro.qasdatrip.core.routeArrow
 import pro.qasdatrip.core.SearchQuery
 import pro.qasdatrip.core.looksLikeEmailShape
 
@@ -106,7 +107,7 @@ fun TrackScreen(
             item {
                 Panel {
                     Text(
-                        "${cityName(query.from, lang)} → ${cityName(query.to, lang)}",
+                        "${cityName(query.from, lang)} ${routeArrow(lang)} ${cityName(query.to, lang)}",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(

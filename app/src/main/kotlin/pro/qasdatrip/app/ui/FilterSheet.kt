@@ -104,8 +104,8 @@ fun FilterSheet(
                 Choice(words.stopsOne, draft.maxStops == 1) {
                     draft = draft.copy(maxStops = if (draft.maxStops == 1) null else 1)
                 }
-                Choice(words.stopsTwoPlus, draft.maxStops == null) {
-                    draft = draft.copy(maxStops = null)
+                Choice(words.stopsTwoPlus, draft.maxStops == 2) {
+                    draft = draft.copy(maxStops = if (draft.maxStops == 2) null else 2)
                 }
             }
 
@@ -125,9 +125,13 @@ fun FilterSheet(
                 }
             }
 
+            // One chip, not the design's pair. "Cabin bag only" as a second
+            // chip has to mean something, and the only thing it could mean is
+            // "show me fares that do NOT include a bag", which nobody wants.
+            // Drawn as a pair, the unselected half would also be lit whenever
+            // no baggage filter was set at all.
             Section(words.baggage) {
-                Choice(words.bagIncluded, draft.bagOnly) { draft = draft.copy(bagOnly = true) }
-                Choice(words.anyBaggage, !draft.bagOnly) { draft = draft.copy(bagOnly = false) }
+                Choice(words.bagIncluded, draft.bagOnly) { draft = draft.copy(bagOnly = !draft.bagOnly) }
             }
 
             if (priceCeiling != null && priceCeiling > 0) {

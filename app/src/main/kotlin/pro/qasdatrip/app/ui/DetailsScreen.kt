@@ -249,7 +249,7 @@ private fun LegCard(leg: Leg, label: String?) {
                     .joinToString(" · "),
                 style = MaterialTheme.typography.labelMedium,
                 color = Ink.muted,
-                modifier = Modifier.padding(start = 64.dp - Space.s4),
+                modifier = Modifier.padding(start = 72.dp + Space.s3 - Space.s4 + 8.dp),
             )
         }
 
@@ -278,13 +278,21 @@ private fun Endpoint(time: String?, iata: String?, lang: Lang, leg: Leg? = null)
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(modifier = Modifier.width(56.dp), verticalAlignment = Alignment.Top) {
-            Text(Money.isolate(time.orEmpty()), style = MaterialTheme.typography.titleLarge)
+        // Wide enough for "16:45" plus a day marker. At 56dp the "+1" wrapped
+        // onto a second line and read as a "+" above a "1".
+        Row(modifier = Modifier.width(72.dp), verticalAlignment = Alignment.Top) {
+            Text(
+                Money.isolate(time.orEmpty()),
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 1,
+            )
             if (days > 0) {
                 Text(
                     Money.isolate("+$days"),
                     style = MaterialTheme.typography.labelSmall,
                     color = Ink.alert,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.padding(start = 2.dp),
                 )
             }

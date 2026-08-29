@@ -46,6 +46,7 @@ import pro.qasdatrip.core.Airports
 import pro.qasdatrip.core.Cabin
 import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.SearchQuery
+import pro.qasdatrip.core.routeArrow
 import java.time.LocalDate
 
 /**
@@ -256,7 +257,7 @@ private fun RecentRow(query: SearchQuery, lang: pro.qasdatrip.core.Lang, onPick:
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "${cityName(query.from, lang)} → ${cityName(query.to, lang)}",
+                "${cityName(query.from, lang)} ${routeArrow(lang)} ${cityName(query.to, lang)}",
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(

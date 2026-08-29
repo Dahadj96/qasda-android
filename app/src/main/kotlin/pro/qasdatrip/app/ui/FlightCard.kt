@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalLang
 import pro.qasdatrip.app.ui.theme.LocalWords
@@ -32,6 +33,7 @@ import pro.qasdatrip.core.Seats
 import pro.qasdatrip.core.Sites
 import pro.qasdatrip.core.Words
 import pro.qasdatrip.core.arrivalDayOffset
+import pro.qasdatrip.core.routeArrow
 import pro.qasdatrip.core.stopCount
 
 /**
@@ -89,9 +91,12 @@ fun FlightCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // 18sp, not the 22 of a screen headline: on a list of a dozen
+            // cards the price is the thing being compared, not the thing
+            // being announced, and at 22 every row shouts over the next.
             Text(
                 text = Money.format(cheapest?.second ?: 0.0, lang),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 18.sp),
                 color = Ink.accentDeep,
             )
         }
@@ -152,7 +157,10 @@ private fun TimesRow(leg: Leg, label: String? = null) {
             Money.isolate(leg.departure.orEmpty()),
             style = MaterialTheme.typography.titleLarge,
         )
-        Text("→", style = MaterialTheme.typography.bodyLarge, color = Ink.muted)
+        // The row is mirrored in Arabic, so the departure sits on the right;
+        // the glyph has to turn around with it or it points back at where the
+        // journey started.
+        Text(routeArrow(LocalLang.current), style = MaterialTheme.typography.bodyLarge, color = Ink.muted)
         Row(verticalAlignment = Alignment.Top) {
             Text(
                 Money.isolate(leg.arrival.orEmpty()),

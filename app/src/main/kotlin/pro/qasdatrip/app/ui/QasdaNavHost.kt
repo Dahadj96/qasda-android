@@ -33,6 +33,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import pro.qasdatrip.app.BuildConfig
@@ -56,6 +57,13 @@ private const val ABOUT = "about"
 private const val TRACKING = "tracking"
 private const val TRACK_NEW = "track-new"
 private const val TRACK_HISTORY = "track-history"
+
+/**
+ * The hosts a manage link can arrive from. dev is here because that is where
+ * the app points today; the other two are here so a link still works after
+ * the apex domain goes live and an old email is opened a month later.
+ */
+private val ManageHosts = listOf("dev.qasdatrip.pro", "qasdatrip.pro", "www.qasdatrip.pro")
 
 /** The destinations the bar can reach. Results and details are inside the search one. */
 private enum class Tab(val route: String, val label: (Words) -> String) {
@@ -85,9 +93,6 @@ fun QasdaNavHost(
     onRemember: (SearchQuery) -> Unit = {},
     manageKey: ManageKey? = null,
     onManageKey: (ManageKey?) -> Unit = {},
-    /** A manage link the app was opened with, handled once and then cleared. */
-    openedWith: String? = null,
-    onOpenedWithHandled: () -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -107,20 +112,6 @@ fun QasdaNavHost(
     })
     val trackState by tracking.state.collectAsStateWithLifecycle()
 
-    // A tapped "manage my alerts" link out of the confirmation email. Handled
-    // once and then cleared, so rotating the phone does not send it through
-    // again and re-navigate underneath somebody.
-    LaunchedEffect(openedWith) {
-        val url = openedWith ?: return@LaunchedEffect
-        if (tracking.useLink(url)) {
-            nav.navigate(TRACKING) {
-                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
-        onOpenedWithHandled()
-    }
 
     // Choosing a site leaves the app: we do not sell tickets, and the booking
     // and the payment happen on the site somebody chose.
@@ -152,7 +143,13 @@ fun QasdaNavHost(
     // The bar belongs to the three places somebody can be, not to the pages
     // they walk into from there. Results with a bar under it invites tapping
     // Home and losing a search that took four sites to produce.
-    val onTopLevel = Tab.entries.any { tab -> here?.hierarchy?.any { it.route == tab.route } == true }
+    // Compared without the query string: a destination reached through a deep
+    // link carries its arguments in the route, and an exact match would hide
+    // the bar on exactly the screen the link was for.
+    val onTopLevel = Tab.entries.any { tab ->
+        here?.hierarchy?.any { it.route?.substringBefore('?') == tab.route } == true
+    }
+
 
     Scaffold(
         containerColor = Ink.canvas,
@@ -173,7 +170,9 @@ fun QasdaNavHost(
                         },
                 ) {
                     Tab.entries.forEach { tab ->
-                        val selected = here?.hierarchy?.any { it.route == tab.route } == true
+                        val selected = here?.hierarchy?.any {
+                            it.route?.substringBefore('?') == tab.route
+                        } == true
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
@@ -254,6 +253,8 @@ fun QasdaNavHost(
                     loading = state.calendarLoading,
                     chosenDepart = state.query?.departDate,
                     chosenReturn = state.query?.returnDate,
+                    origin = state.query?.from,
+                    destination = state.query?.to,
                     onPick = { depart, back ->
                         searchDate(depart, back)
                         nav.popBackStack()
@@ -281,10 +282,27 @@ fun QasdaNavHost(
                     )
                 }
             }
-            composable(TRACKING) {
+            composable(
+                route = TRACKING,
+                // The "manage my alerts" link out of a confirmation email
+                // lands here. Declared on the destination rather than driven
+                // from the activity's intent: NavHost matches it while it is
+                // building its graph, so there is no window in which the tab
+                // bar has moved and the screen has not.
+                deepLinks = ManageHosts.map { host ->
+                    navDeepLink { uriPattern = "https://$host/alerts?w={w}&s={s}" }
+                },
+            ) { entry ->
                 // Re-read on every visit: a watch cancelled from a laptop must
                 // not still be listed here.
-                LaunchedEffect(Unit) { tracking.refresh() }
+                LaunchedEffect(Unit) {
+                    val id = entry.arguments?.getString("w")
+                    val signature = entry.arguments?.getString("s")
+                    if (id != null && signature != null) {
+                        tracking.useLink("?w=$id&s=$signature")
+                    }
+                    tracking.refresh()
+                }
                 TrackingScreen(
                     state = trackState,
                     onOpen = { watch ->

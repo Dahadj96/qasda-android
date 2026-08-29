@@ -43,6 +43,7 @@ import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
 import pro.qasdatrip.core.Money
+import pro.qasdatrip.core.routeArrow
 import pro.qasdatrip.core.PriceTrend
 import pro.qasdatrip.core.Watch
 
@@ -184,7 +185,7 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(Space.s1),
     ) {
         Text(
-            "${cityName(watch.origin, lang)} → ${cityName(watch.destination, lang)}",
+            "${cityName(watch.origin, lang)} ${routeArrow(lang)} ${cityName(watch.destination, lang)}",
             style = MaterialTheme.typography.titleMedium,
         )
         Text(
@@ -264,7 +265,7 @@ fun PriceHistoryScreen(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "${cityName(watch.origin, lang)} → ${cityName(watch.destination, lang)}",
+                    "${cityName(watch.origin, lang)} ${routeArrow(lang)} ${cityName(watch.destination, lang)}",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(

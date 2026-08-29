@@ -144,20 +144,30 @@ private val Cairo = FontFamily(
  * labelMedium   — the small grey line under a title
  * labelSmall    — a section heading in small caps, a tag
  */
-private fun typographyFor(family: FontFamily) = Typography(
-    displaySmall = TextStyle(fontFamily = family, fontSize = 30.sp, lineHeight = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp),
-    headlineSmall = TextStyle(fontFamily = family, fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp),
-    titleLarge = TextStyle(fontFamily = family, fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.2).sp),
-    titleMedium = TextStyle(fontFamily = family, fontSize = 15.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold),
-    bodyLarge = TextStyle(fontFamily = family, fontSize = 14.sp, lineHeight = 21.sp),
-    bodyMedium = TextStyle(fontFamily = family, fontSize = 13.sp, lineHeight = 19.sp),
-    labelLarge = TextStyle(fontFamily = family, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium),
-    labelMedium = TextStyle(fontFamily = family, fontSize = 12.sp, lineHeight = 16.sp),
-    labelSmall = TextStyle(fontFamily = family, fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
+private fun typographyFor(family: FontFamily, tracking: Boolean) = Typography(
+    displaySmall = TextStyle(fontFamily = family, fontSize = 30.sp, lineHeight = 40.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = if (tracking) (-0.8).sp else 0.sp),
+    headlineSmall = TextStyle(fontFamily = family, fontSize = 22.sp, lineHeight = 30.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = if (tracking) (-0.4).sp else 0.sp),
+    titleLarge = TextStyle(fontFamily = family, fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = if (tracking) (-0.2).sp else 0.sp),
+    titleMedium = TextStyle(fontFamily = family, fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+    bodyLarge = TextStyle(fontFamily = family, fontSize = 14.sp, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontFamily = family, fontSize = 13.sp, lineHeight = 20.sp),
+    labelLarge = TextStyle(fontFamily = family, fontSize = 13.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium),
+    labelMedium = TextStyle(fontFamily = family, fontSize = 12.sp, lineHeight = 17.sp),
+    labelSmall = TextStyle(fontFamily = family, fontSize = 10.sp, lineHeight = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = if (tracking) 0.6.sp else 0.sp),
 )
 
-private val LatinType = typographyFor(Manrope)
-private val ArabicType = typographyFor(Cairo)
+private val LatinType = typographyFor(Manrope, tracking = true)
+
+/**
+ * Arabic gets no letter-spacing at all.
+ *
+ * Latin tightens at display sizes and opens up in small caps; Arabic is
+ * cursive, and moving letters apart breaks the joins and the shaping with
+ * them. Negative tracking on a 30sp Arabic title measured it wrong enough
+ * to break "الإعدادات" across two lines mid-word. Taller line heights for
+ * the same reason: Arabic ascenders and descenders need the room.
+ */
+private val ArabicType = typographyFor(Cairo, tracking = false)
 
 val LocalWords = staticCompositionLocalOf { pro.qasdatrip.core.Words.of(pro.qasdatrip.core.Lang.FR) }
 val LocalLang = staticCompositionLocalOf { pro.qasdatrip.core.Lang.FR }
