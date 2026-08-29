@@ -42,6 +42,7 @@ import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.Lang
+import pro.qasdatrip.core.DeviceKey
 import pro.qasdatrip.core.ManageKey
 import pro.qasdatrip.core.QasdaApi
 import pro.qasdatrip.core.SearchQuery
@@ -63,6 +64,7 @@ private const val ABOUT = "about"
 private const val TRACKING = "tracking"
 private const val TRACK_NEW = "track-new"
 private const val TRACK_HISTORY = "track-history"
+private const val NOTIFICATIONS = "notifications"
 
 /**
  * The hosts a manage link can arrive from. dev is here because that is where
@@ -101,6 +103,8 @@ fun QasdaNavHost(
     onRemember: (SearchQuery) -> Unit = {},
     manageKey: ManageKey? = null,
     onManageKey: (ManageKey?) -> Unit = {},
+    readDevice: () -> DeviceKey? = { null },
+    onDeviceKey: (DeviceKey?) -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -121,7 +125,14 @@ fun QasdaNavHost(
     val tracking: TrackingViewModel = viewModel(factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            TrackingViewModel(api, readKey = { manageKey }, writeKey = onManageKey) as T
+            TrackingViewModel(
+                api,
+                readKey = { manageKey },
+                writeKey = onManageKey,
+                readDevice = readDevice,
+                writeDevice = onDeviceKey,
+                locale = { lang.tag },
+            ) as T
     })
     val trackState by tracking.state.collectAsStateWithLifecycle()
 
@@ -430,16 +441,36 @@ fun QasdaNavHost(
                 }
                 TrackingScreen(
                     state = trackState,
+                    onNotifications = { nav.navigate(NOTIFICATIONS) },
                     onOpen = { watch ->
                         tracking.open(watch)
                         nav.navigate(TRACK_HISTORY)
                     },
                     onStop = { tracking.stop(it) },
-                    onLink = { url -> tracking.useLink(url) },
                     onNew = {
                         tracking.resetForm()
                         nav.navigate(TRACK_NEW)
                     },
+                )
+            }
+            composable(NOTIFICATIONS) {
+                NotificationsScreen(
+                    state = trackState,
+                    onLoad = { tracking.loadAlerts() },
+                    onOpen = { alert ->
+                        // Every message links back to a live search rather
+                        // than restating its own number: the price it carries
+                        // was true when it was observed, and re-running the
+                        // question is the only thing that can say what the
+                        // route costs now.
+                        val query = trackState.watches.firstOrNull { it.id == alert.watchId }?.asQuery()
+                        if (query != null) {
+                            onRemember(query)
+                            vm.search(query)
+                            nav.navigate(RESULTS)
+                        }
+                    },
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(TRACK_NEW) {
@@ -460,15 +491,21 @@ fun QasdaNavHost(
                 } else {
                     TrackScreen(
                         query = query,
-                        currentCheapest = state.flights.mapNotNull { it.cheapest?.second }.minOrNull()
+                        // The number that was on screen. Null when the search
+                        // came back empty, which is not a missing answer — it
+                        // is the other kind of watch.
+                        seenPrice = state.flights.mapNotNull { it.cheapest?.second }.minOrNull()
                             ?.takeIf { state.query == query },
                         state = trackState,
-                        onCreate = { email, target ->
-                            tracking.create(query, email, lang.tag, target)
-                        },
+                        onTrack = { seen -> tracking.track(query, seen) },
                         onDone = {
                             tracking.resetForm()
                             nav.popBackStack()
+                            nav.navigate(TRACKING) {
+                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         },
                         onBack = { nav.popBackStack() },
                     )

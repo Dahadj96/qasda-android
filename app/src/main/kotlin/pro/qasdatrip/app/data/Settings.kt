@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import pro.qasdatrip.core.Lang
+import pro.qasdatrip.core.DeviceKey
 import pro.qasdatrip.core.ManageKey
 import pro.qasdatrip.core.SearchQuery
 
@@ -75,6 +76,53 @@ class Settings(context: Context) {
             }.apply()
         }
 
+    /**
+     * This install, as the server knows it.
+     *
+     * The whole credential for tracking, and there is deliberately nothing
+     * else — no address, no account, no password. Losing it (a reinstall, or
+     * clearing the app's data) loses the watches with it, which is the honest
+     * price of never having asked anybody to sign up for anything.
+     *
+     * Stored beside the manage key rather than replacing it: somebody who
+     * created alerts by email on the website and then opened one of those
+     * links on this phone still has them, and taking that away to tidy up a
+     * preferences file would be a poor trade.
+     */
+    var deviceKey: DeviceKey?
+        get() {
+            val id = prefs.getString(KEY_DEVICE_ID, null) ?: return null
+            val watcher = prefs.getLong(KEY_DEVICE_WATCHER, -1L).takeIf { it >= 0 } ?: return null
+            val signature = prefs.getString(KEY_DEVICE_SIGNATURE, null) ?: return null
+            return DeviceKey(id, watcher, signature)
+        }
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) {
+                    remove(KEY_DEVICE_ID); remove(KEY_DEVICE_WATCHER); remove(KEY_DEVICE_SIGNATURE)
+                } else {
+                    putString(KEY_DEVICE_ID, value.deviceId)
+                    putLong(KEY_DEVICE_WATCHER, value.watcherId)
+                    putString(KEY_DEVICE_SIGNATURE, value.signature)
+                }
+            }.apply()
+        }
+
+    /**
+     * The push token this install last handed to the server.
+     *
+     * Kept only so the app can tell whether it has changed. Re-registering on
+     * every launch would work and would also be a request per launch for a
+     * value that changes perhaps twice a year.
+     */
+    var pushToken: String?
+        get() = prefs.getString(KEY_PUSH_TOKEN, null)
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) remove(KEY_PUSH_TOKEN) else putString(KEY_PUSH_TOKEN, value)
+            }.apply()
+        }
+
     /** Newest first, no duplicates, and never more than [KEEP]. */
     fun remember(query: SearchQuery) {
         recent = (listOf(query) + recent.filterNot { it.sameTrip(query) }).take(KEEP)
@@ -93,6 +141,10 @@ class Settings(context: Context) {
         const val KEY_LANG = "lang"
         const val KEY_RECENT = "recent_searches"
         const val KEY_WATCHER = "alert_watcher_id"
+        const val KEY_DEVICE_ID = "device_id"
+        const val KEY_DEVICE_WATCHER = "device_watcher_id"
+        const val KEY_DEVICE_SIGNATURE = "device_signature"
+        const val KEY_PUSH_TOKEN = "device_push_token"
         const val KEY_SIGNATURE = "alert_signature"
         const val KEEP = 5
 

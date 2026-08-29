@@ -169,12 +169,112 @@ class QasdaApi(
         envelope.data
     }.getOrNull()
 
+    /**
+     * Tell the server this install exists, and hand it a push token if we
+     * have one.
+     *
+     * Called on first launch and again whenever the token changes — which is
+     * often, because tokens rotate on reinstall and on restore to a new
+     * handset. Passing back the key we already hold keeps the watches
+     * attached to it; the server mints a fresh one only when it does not
+     * recognise what we sent, which is a lost install rather than a merge.
+     *
+     * The token is optional on purpose. Registering before the permission
+     * dialog means a watch can be created the moment somebody asks for one,
+     * instead of a system prompt standing between them and the thing they
+     * were trying to do.
+     */
+    suspend fun registerDevice(
+        existing: DeviceKey? = null,
+        pushToken: String? = null,
+        platform: String = "android",
+        locale: String,
+    ): DeviceKey? = runCatching {
+        val envelope: Envelope<DeviceKey> = client.post("$baseUrl/api/v1/devices") {
+            identify()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    existing?.let {
+                        put("deviceId", JsonPrimitive(it.deviceId))
+                        put("signature", JsonPrimitive(it.signature))
+                    }
+                    pushToken?.takeIf { it.isNotBlank() }?.let { put("pushToken", JsonPrimitive(it)) }
+                    put("platform", JsonPrimitive(platform))
+                    put("locale", JsonPrimitive(locale))
+                }
+            )
+        }.body()
+        envelope.data
+    }.getOrNull()
+
+    /**
+     * Watch a route and a date from the app.
+     *
+     * There is no address and no target price. `seenPrice` is the number that
+     * was on screen when somebody decided to watch, and it is what "cheaper"
+     * will be measured against — a promise that can actually be kept, unlike
+     * a figure typed into a box that the fare may never reach.
+     *
+     * `seenPrice` is null only for a seat watch, which exists precisely
+     * because there was no price to see.
+     */
+    suspend fun trackRoute(
+        key: DeviceKey,
+        q: SearchQuery,
+        seenPrice: Double?,
+        locale: String,
+    ): WatchCreated? = runCatching {
+        val envelope: Envelope<WatchCreated> = client.post("$baseUrl/api/v1/alerts/device") {
+            identify()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("deviceId", JsonPrimitive(key.deviceId))
+                    put("signature", JsonPrimitive(key.signature))
+                    put("locale", JsonPrimitive(locale))
+                    put("from", JsonPrimitive(q.from))
+                    put("to", JsonPrimitive(q.to))
+                    put("departDate", JsonPrimitive(q.departDate))
+                    q.returnDate?.takeIf { it.isNotBlank() }?.let { put("returnDate", JsonPrimitive(it)) }
+                    put("adults", JsonPrimitive(q.adults))
+                    put("children", JsonPrimitive(q.children))
+                    put("infants", JsonPrimitive(q.infants))
+                    put("cabinClass", JsonPrimitive(q.cabin.wire))
+                    // No price to see means the date came back empty, which is
+                    // the other thing worth watching.
+                    put("kind", JsonPrimitive(if (seenPrice == null) "seat" else "price"))
+                    seenPrice?.let { put("seenPrice", JsonPrimitive(it)) }
+                }
+            )
+        }.body()
+        envelope.data
+    }.getOrNull()
+
     /** Everything that mailbox is watching. Null means the link is no good. */
     suspend fun watches(key: ManageKey): List<Watch>? = runCatching {
         val envelope: Envelope<List<Watch>> = client.get("$baseUrl/api/v1/alerts") {
             identify()
             parameter("w", key.watcherId)
             parameter("s", key.signature)
+        }.body()
+        envelope.data
+    }.getOrNull()
+
+    /**
+     * What we have already told this device, newest first.
+     *
+     * Signed with the same pair as the listing, because it is the same claim.
+     * Null is the server refusing the link; an empty list is a device that
+     * has been told nothing yet, and the two must not look the same on
+     * screen.
+     */
+    suspend fun alerts(key: ManageKey, limit: Int = 50): List<Alert>? = runCatching {
+        val envelope: Envelope<List<Alert>> = client.get("$baseUrl/api/v1/alerts/notifications") {
+            identify()
+            parameter("w", key.watcherId)
+            parameter("s", key.signature)
+            parameter("limit", limit)
         }.body()
         envelope.data
     }.getOrNull()
