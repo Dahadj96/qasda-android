@@ -9,11 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,26 +86,26 @@ object Space {
  *
  * One variable file rather than five static ones: 165 KB against roughly
  * 400 KB, and every weight the design uses is a coordinate on the same axis.
- * minSdk is 26 and variable fonts land in 26, so there is no fallback branch
- * to write.
  *
- * Without this the app rendered in whatever the phone's default happened to
- * be — Roboto on stock, MiSans on the Xiaomi — which is most of why screens
- * built to the right measurements still did not look like the design.
+ * Each weight is a font-family resource pinning that coordinate, not a
+ * `variationSettings` argument here. The argument is honoured on the
+ * emulator and ignored on HyperOS, where every weight came back as the
+ * file's default instance — a screen built from four weights rendering in
+ * one, and looking lighter than the design everywhere. The XML path goes
+ * through the framework's own resource loader, which applies the axis when
+ * it creates the typeface.
+ *
+ * Without any of this the app rendered in whatever the phone's default
+ * happened to be — Roboto on stock, MiSans on the Xiaomi — which is most of
+ * why screens built to the right measurements still did not look like the
+ * design.
  */
-@OptIn(ExperimentalTextApi::class)
-private fun manrope(weight: FontWeight) = Font(
-    R.font.manrope_variable,
-    weight = weight,
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)),
-)
-
 private val Manrope = FontFamily(
-    manrope(FontWeight.Normal),
-    manrope(FontWeight.Medium),
-    manrope(FontWeight.SemiBold),
-    manrope(FontWeight.Bold),
-    manrope(FontWeight.ExtraBold),
+    Font(R.font.manrope_regular, FontWeight.Normal),
+    Font(R.font.manrope_medium, FontWeight.Medium),
+    Font(R.font.manrope_semibold, FontWeight.SemiBold),
+    Font(R.font.manrope_bold, FontWeight.Bold),
+    Font(R.font.manrope_extrabold, FontWeight.ExtraBold),
 )
 
 /**
@@ -116,19 +114,12 @@ private val Manrope = FontFamily(
  * companion the site and the Figma file already use, so Arabic gets it
  * outright rather than by accident.
  */
-@OptIn(ExperimentalTextApi::class)
-private fun cairo(weight: FontWeight) = Font(
-    R.font.cairo_variable,
-    weight = weight,
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)),
-)
-
 private val Cairo = FontFamily(
-    cairo(FontWeight.Normal),
-    cairo(FontWeight.Medium),
-    cairo(FontWeight.SemiBold),
-    cairo(FontWeight.Bold),
-    cairo(FontWeight.ExtraBold),
+    Font(R.font.cairo_regular, FontWeight.Normal),
+    Font(R.font.cairo_medium, FontWeight.Medium),
+    Font(R.font.cairo_semibold, FontWeight.SemiBold),
+    Font(R.font.cairo_bold, FontWeight.Bold),
+    Font(R.font.cairo_extrabold, FontWeight.ExtraBold),
 )
 
 /**
