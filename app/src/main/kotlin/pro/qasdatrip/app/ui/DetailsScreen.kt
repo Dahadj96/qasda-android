@@ -46,6 +46,8 @@ import pro.qasdatrip.core.Seats
 import pro.qasdatrip.core.Segment
 import pro.qasdatrip.core.Sites
 import pro.qasdatrip.core.Words
+import pro.qasdatrip.core.arrivalDayOffset
+import pro.qasdatrip.core.stopCount
 
 /**
  * One flight, in full: what it actually flies, what it lets you carry, what
@@ -171,13 +173,13 @@ private fun LegCard(leg: Leg, label: String) {
                     .background(Ink.line),
             )
             Text(
-                listOfNotNull(leg.duration?.let(Money::isolate), stopsText(leg.stops, words))
+                listOfNotNull(leg.duration?.let(Money::isolate), stopsText(leg.stopCount, words))
                     .joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Ink.muted,
             )
         }
-        Endpoint(time = leg.arrival, place = leg.destination)
+        Endpoint(time = leg.arrival, place = leg.destination, leg = leg)
 
         if (leg.segments.size > 1) {
             leg.segments.forEach { segment -> SegmentLine(segment) }
@@ -186,17 +188,24 @@ private fun LegCard(leg: Leg, label: String) {
 }
 
 @Composable
-private fun Endpoint(time: String?, place: String?) {
+private fun Endpoint(time: String?, place: String?, leg: Leg? = null) {
+    val days = leg?.let { arrivalDayOffset(it.departure, it.arrival, it.duration) } ?: 0
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            Money.isolate(time.orEmpty()),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.width(56.dp),
-        )
+        Row(modifier = Modifier.width(64.dp)) {
+            Text(Money.isolate(time.orEmpty()), style = MaterialTheme.typography.titleMedium)
+            if (days > 0) {
+                Text(
+                    Money.isolate("+$days"),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Ink.alert,
+                    modifier = Modifier.padding(start = 2.dp),
+                )
+            }
+        }
         Text(place.orEmpty(), style = MaterialTheme.typography.bodyLarge)
     }
 }
@@ -258,6 +267,8 @@ private fun BagLine(label: String, bag: BagAllowance?, words: Words) {
 
 private fun bagText(bag: BagAllowance?, words: Words): String {
     if (bag == null) return words.bagUnknown
+    // Zero of something is not a quantity of it, it is the absence.
+    if (bag.value <= 0) return words.bagNone
     val n = Money.isolate(bag.value.toString())
     // PIECE and KG are different promises; the unit travels with the number.
     return if (bag.unit.equals("KG", ignoreCase = true)) {
@@ -343,7 +354,7 @@ private fun SiteRow(site: String, amount: Double, seats: Int?, best: Boolean, on
             )
             val note = listOfNotNull(
                 words.cheapest.takeIf { best },
-                Seats.left(seats)?.let { n -> words.seatsShort.replace("{n}", Money.isolate(n.toString())) },
+                Seats.left(seats)?.let { n -> seatsLabel(n, words) },
             ).joinToString(" · ")
             if (note.isNotEmpty()) {
                 Text(
@@ -379,8 +390,10 @@ private fun Card(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-private fun stopsText(stops: Int?, words: Words): String = when (stops) {
-    null, 0 -> words.direct
+/** Null when the itinerary does not say. "Direct" is a claim, not a default. */
+private fun stopsText(stops: Int?, words: Words): String? = when (stops) {
+    null -> null
+    0 -> words.direct
     1 -> words.stopsOne
     else -> words.stopsMany.replace("{n}", Money.isolate(stops.toString()))
 }

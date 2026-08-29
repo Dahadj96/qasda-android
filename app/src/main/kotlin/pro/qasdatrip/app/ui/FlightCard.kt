@@ -35,6 +35,9 @@ import pro.qasdatrip.core.Leg
 import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.Seats
 import pro.qasdatrip.core.Sites
+import pro.qasdatrip.core.Words
+import pro.qasdatrip.core.arrivalDayOffset
+import pro.qasdatrip.core.stopCount
 
 /**
  * The card, as the site draws it: the two facts worth a chip, a leg you can
@@ -65,11 +68,7 @@ fun FlightCard(flight: Flight, onOpen: () -> Unit, onBook: () -> Unit) {
                 bg = if (flight.hasLuggage) Ink.accentSoft else Ink.alertSoft,
             )
             Seats.left(flight.seatsAvailable)?.let { n ->
-                Chip(
-                    text = words.seatsShort.replace("{n}", Money.isolate(n.toString())),
-                    fg = Ink.notice,
-                    bg = Ink.noticeSoft,
-                )
+                Chip(text = seatsLabel(n, words), fg = Ink.notice, bg = Ink.noticeSoft)
             }
         }
 
@@ -136,11 +135,15 @@ private fun LegRow(leg: Leg, label: String) {
                     .height(1.dp)
                     .background(Ink.line),
             )
-            Text(
-                text = stopsLabel(leg.stops, words.direct, words.stopsOne, words.stopsMany),
-                style = MaterialTheme.typography.labelSmall,
-                color = if ((leg.stops ?: 0) == 0) Ink.accentDeep else Ink.alert,
-            )
+            // Nothing at all when the itinerary does not say. "Direct" is a
+            // claim, and the server sends no stop count on this route.
+            stopsLabel(leg.stopCount, words.direct, words.stopsOne, words.stopsMany)?.let { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (leg.stopCount == 0) Ink.accentDeep else Ink.alert,
+                )
+            }
         }
 
         Column(
@@ -148,17 +151,45 @@ private fun LegRow(leg: Leg, label: String) {
             horizontalAlignment = Alignment.End,
         ) {
             Text(Money.isolate(leg.duration.orEmpty()), style = MaterialTheme.typography.labelSmall, color = Ink.muted)
-            Text(Money.isolate(leg.arrival.orEmpty()), style = MaterialTheme.typography.titleMedium)
+            ArrivalTime(leg)
             Text(leg.destination.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
         }
     }
 }
 
-private fun stopsLabel(stops: Int?, direct: String, one: String, many: String): String = when (stops) {
-    null, 0 -> direct
+private fun stopsLabel(stops: Int?, direct: String, one: String, many: String): String? = when (stops) {
+    null -> null
+    0 -> direct
     1 -> one
     else -> many.replace("{n}", Money.isolate(stops.toString()))
 }
+
+/**
+ * The arrival, with the day it actually happens on.
+ *
+ * A 14:25 departure arriving "17:35" reads as an afternoon hop. When the
+ * duration says that 17:35 is tomorrow, the +1 is the difference between a
+ * three-hour flight and a twenty-six-hour one.
+ */
+@Composable
+fun ArrivalTime(leg: Leg) {
+    val days = arrivalDayOffset(leg.departure, leg.arrival, leg.duration) ?: 0
+    Row(verticalAlignment = Alignment.Top) {
+        Text(Money.isolate(leg.arrival.orEmpty()), style = MaterialTheme.typography.titleMedium)
+        if (days > 0) {
+            Text(
+                Money.isolate("+$days"),
+                style = MaterialTheme.typography.labelSmall,
+                color = Ink.alert,
+                modifier = Modifier.padding(start = 2.dp),
+            )
+        }
+    }
+}
+
+/** "1 seats" is the sort of thing that makes an app look machine-written. */
+fun seatsLabel(n: Int, words: Words): String =
+    if (n == 1) words.seatOne else words.seatsShort.replace("{n}", Money.isolate(n.toString()))
 
 @Composable
 fun Chip(text: String, fg: Color, bg: Color) {

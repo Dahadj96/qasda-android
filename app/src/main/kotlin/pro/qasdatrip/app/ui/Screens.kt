@@ -222,12 +222,17 @@ private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                Money.isolate(listOfNotNull(q.departDate, q.returnDate).joinToString(" – ")),
+                // The same shape the search screen uses. An ISO date here and
+                // "31 Aug" one screen back is two apps.
+                listOfNotNull(q.departDate, q.returnDate)
+                    .joinToString(" – ") { formatDate(it, lang) },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Ink.muted,
             )
+            // "Search" on this button meant "go back and change the search",
+            // which is not what the word says.
             OutlinedButton(onClick = onEdit, shape = RoundedCornerShape(Radius.sm)) {
-                Text(LocalWords.current.search, style = MaterialTheme.typography.labelSmall)
+                Text(LocalWords.current.edit, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
