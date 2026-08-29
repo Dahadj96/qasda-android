@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The aircraft on the loading rail. Solid, not stroked: it is drawn at
+     22dp on a hairline and an outline at that size reads as a smudge. The
+     nose points at the destination, which is the whole point of the
+     animation — in Arabic the caller mirrors it so it still does. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#232522">
+    <path
+        android:pathData="M2.5,3.5 L22,12 L2.5,20.5 L5.6,13 L14,12 L5.6,11 Z"
+        android:fillColor="#232522" />
+</vector>

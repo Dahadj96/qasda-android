@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -52,6 +52,7 @@ private const val RESULTS = "results"
 private const val DETAILS = "details"
 private const val CALENDAR = "calendar"
 private const val HELP = "help"
+private const val ACCOUNT = "account"
 private const val SETTINGS = "settings"
 private const val ABOUT = "about"
 private const val TRACKING = "tracking"
@@ -70,7 +71,9 @@ private enum class Tab(val route: String, val label: (Words) -> String) {
     HOME(SEARCH, { it.navHome }),
     TRACKING_TAB(TRACKING, { it.navTracking }),
     HELP_TAB(HELP, { it.navHelp }),
-    SETTINGS_TAB(SETTINGS, { it.navSettings }),
+    // Compte, not Réglages. Nobody opens an app to visit its settings; they
+    // open it to see what is theirs. Réglages is a row inside this one.
+    ACCOUNT_TAB(ACCOUNT, { it.navAccount }),
 }
 
 @Composable
@@ -80,7 +83,7 @@ private fun TabIcon(tab: Tab) = when (tab) {
     // Material core ships Info but no question mark, and this tab is help
     // rather than about.
     Tab.HELP_TAB -> Icon(painterResource(R.drawable.ic_help), contentDescription = null)
-    Tab.SETTINGS_TAB -> Icon(Icons.Filled.Settings, contentDescription = null)
+    Tab.ACCOUNT_TAB -> Icon(Icons.Filled.Person, contentDescription = null)
 }
 
 @Composable
@@ -140,15 +143,23 @@ fun QasdaNavHost(
 
     val backStack by nav.currentBackStackEntryAsState()
     val here = backStack?.destination
-    // The bar belongs to the three places somebody can be, not to the pages
-    // they walk into from there. Results with a bar under it invites tapping
-    // Home and losing a search that took four sites to produce.
-    // Compared without the query string: a destination reached through a deep
-    // link carries its arguments in the route, and an exact match would hide
-    // the bar on exactly the screen the link was for.
-    val onTopLevel = Tab.entries.any { tab ->
-        here?.hierarchy?.any { it.route?.substringBefore('?') == tab.route } == true
-    }
+    val route = here?.route?.substringBefore('?')
+    // Where the bar belongs.
+    //
+    // It used to be the four tab roots only, on the argument that a bar under
+    // the results invites tapping Home and losing a search that took four
+    // sites to produce. Testing on a phone said the opposite: results is
+    // where people spend the most time, and a screen with no bar under it
+    // reads as a modal somebody is trapped in — they hunt for a way out
+    // instead of using the one on screen.
+    //
+    // So the rule is now about the kind of screen, not the tab. Anywhere you
+    // can stand and look around keeps the bar. Anywhere you walked into to
+    // do one thing and leave — a filter sheet, a fare's detail, a step of the
+    // search, a handover to a booking site — does not, because the bar there
+    // competes with the one action the screen exists for.
+    val withTabBar = setOf(SEARCH, RESULTS, CALENDAR, TRACKING, HELP, ACCOUNT)
+    val onTopLevel = route in withTabBar
 
 
     Scaffold(
@@ -170,13 +181,25 @@ fun QasdaNavHost(
                         },
                 ) {
                     Tab.entries.forEach { tab ->
-                        val selected = here?.hierarchy?.any {
-                            it.route?.substringBefore('?') == tab.route
-                        } == true
+                        // Results and the price calendar are the search tab's
+                        // own pages: standing on them, Accueil is where you
+                        // are, not somewhere else to go.
+                        val selected = when (tab) {
+                            Tab.HOME -> route == SEARCH || route == RESULTS || route == CALENDAR
+                            else -> here?.hierarchy?.any {
+                                it.route?.substringBefore('?') == tab.route
+                            } == true
+                        }
                         NavigationBarItem(
                             selected = selected,
                             onClick = {
-                                if (!selected) {
+                                // Tapping the tab you are already on is not a
+                                // no-op when you are two pages inside it: from
+                                // the results, Accueil means "take me back to
+                                // the search", which is exactly what somebody
+                                // reaches for when they want to change route
+                                // rather than date.
+                                if (!selected || route != tab.route) {
                                     nav.navigate(tab.route) {
                                         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                                         launchSingleTop = true
@@ -380,6 +403,17 @@ fun QasdaNavHost(
             composable(HELP) {
                 HelpScreen(onContact = { openUrl(context, "${BuildConfig.API_BASE}/${lang.tag}/") })
             }
+            composable(ACCOUNT) {
+                AccountScreen(
+                    lang = lang,
+                    chosenLang = chosenLang,
+                    versionName = BuildConfig.VERSION_NAME,
+                    activeWatches = trackState.watches.size,
+                    onSettings = { nav.navigate(SETTINGS) },
+                    onAbout = { nav.navigate(ABOUT) },
+                    onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
+                )
+            }
             composable(SETTINGS) {
                 SettingsScreen(
                     current = chosenLang,
@@ -388,6 +422,7 @@ fun QasdaNavHost(
                     onLanguage = onLang,
                     onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
                     onAbout = { nav.navigate(ABOUT) },
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(ABOUT) {

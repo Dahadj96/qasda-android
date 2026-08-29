@@ -155,6 +155,16 @@ data class Words(
     val stopsTwoPlus: String,
     val baggage: String,
     val anyBaggage: String,
+    val navAccount: String,
+    val seeDetails: String,
+    val sitesQuoting: String,       // {n}
+    val onlyOnSite: String,         // {site}
+    val thisDevice: String,
+    val thisDeviceSub: String,
+    val preferences: String,
+    val helpAndInfo: String,
+    val settingsAndAlerts: String,
+    val settingsAndAlertsSub: String,
 ) {
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -256,6 +266,16 @@ data class Words(
                 compareSites = "Comparer les sites",
                 bookOn = "Réserver sur {site}",
                 stopsTwoPlus = "2+", baggage = "Bagages", anyBaggage = "Cabine seule",
+                navAccount = "Compte",
+                seeDetails = "Voir les détails",
+                sitesQuoting = "sur {n} sites",
+                onlyOnSite = "sur {site}",
+                thisDevice = "Cet appareil",
+                thisDeviceSub = "Pas de compte à créer. Vos suivis et vos réglages vivent ici.",
+                preferences = "Préférences",
+                helpAndInfo = "Aide et informations",
+                settingsAndAlerts = "Réglages et notifications",
+                settingsAndAlertsSub = "Langue, devise, alertes, données",
             )
             Lang.AR -> Words(
                 heroTitle = "كل المواقع. بحث واحد.",
@@ -355,6 +375,16 @@ data class Words(
                 compareSites = "قارن المواقع",
                 bookOn = "احجز على {site}",
                 stopsTwoPlus = "+2", baggage = "الأمتعة", anyBaggage = "حقيبة يد فقط",
+                navAccount = "الحساب",
+                seeDetails = "عرض التفاصيل",
+                sitesQuoting = "على {n} مواقع",
+                onlyOnSite = "على {site}",
+                thisDevice = "هذا الجهاز",
+                thisDeviceSub = "لا حاجة لإنشاء حساب. متابعاتك وإعداداتك محفوظة هنا.",
+                preferences = "التفضيلات",
+                helpAndInfo = "المساعدة والمعلومات",
+                settingsAndAlerts = "الإعدادات والإشعارات",
+                settingsAndAlertsSub = "اللغة والعملة والتنبيهات والبيانات",
             )
             Lang.EN -> Words(
                 heroTitle = "Every site. One search.",
@@ -454,6 +484,16 @@ data class Words(
                 compareSites = "Compare the sites",
                 bookOn = "Book on {site}",
                 stopsTwoPlus = "2+", baggage = "Baggage", anyBaggage = "Cabin bag only",
+                navAccount = "Account",
+                seeDetails = "See details",
+                sitesQuoting = "on {n} sites",
+                onlyOnSite = "on {site}",
+                thisDevice = "This device",
+                thisDeviceSub = "No account to create. Your tracking and settings live here.",
+                preferences = "Preferences",
+                helpAndInfo = "Help and information",
+                settingsAndAlerts = "Settings and notifications",
+                settingsAndAlertsSub = "Language, currency, alerts, data",
             )
         }
     }
