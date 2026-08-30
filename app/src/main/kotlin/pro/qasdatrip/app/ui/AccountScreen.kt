@@ -18,7 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,7 +55,11 @@ fun AccountScreen(
     chosenLang: Lang?,
     versionName: String,
     activeWatches: Int,
+    notifications: Int = 0,
+    searches: Int = 0,
+    homeAirport: String? = null,
     onSettings: () -> Unit,
+    onHomeAirport: () -> Unit = {},
     onAbout: () -> Unit,
     onOpen: (path: String) -> Unit,
 ) {
@@ -96,7 +100,7 @@ fun AccountScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Filled.Person,
+                            Icons.Outlined.Person,
                             contentDescription = null,
                             tint = Ink.accentDeep,
                             modifier = Modifier.size(22.dp),
@@ -111,30 +115,14 @@ fun AccountScreen(
                         )
                     }
                 }
-                // One number, and only when it is true. A row of zeroes
-                // dressed as statistics is decoration.
-                if (activeWatches > 0) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(Radius.sm))
-                            .background(Ink.surfaceSoft)
-                            .clickable(onClick = onSettings)
-                            .padding(Space.s3),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(Space.s2),
-                    ) {
-                        Text(
-                            Money.isolate(activeWatches.toString()),
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Ink.accentDeep,
-                        )
-                        Text(
-                            words.myTracking,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Ink.inkSoft,
-                            modifier = Modifier.weight(1f),
-                        )
+                // Three tiles, as drawn — but only once there is something
+                // to count. A row of zeroes dressed as statistics is
+                // decoration, and on first launch it would be three of them.
+                if (activeWatches + notifications + searches > 0) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+                        Stat(activeWatches, words.statWatches, Modifier.weight(1f))
+                        Stat(notifications, words.statNotifications, Modifier.weight(1f))
+                        Stat(searches, words.statSearches, Modifier.weight(1f))
                     }
                 }
             }
@@ -147,6 +135,23 @@ fun AccountScreen(
                     title = words.language,
                     value = nameOfLang(chosenLang) ?: words.systemLanguage,
                     onClick = onSettings,
+                )
+                HairLine()
+                // Shown, not offered. Every site this app reads quotes in
+                // dinars, so a picker here would be a control that changes
+                // nothing — worse than no control at all. It is on the page
+                // because "what am I being quoted in?" is a fair question
+                // and the answer belongs where somebody looks for it.
+                RowLink(
+                    title = words.currency,
+                    value = words.currencyDzd,
+                    onClick = null,
+                )
+                HairLine()
+                RowLink(
+                    title = words.homeAirport,
+                    value = homeAirport?.let { "${cityName(it, lang)} ($it)" } ?: words.notSet,
+                    onClick = onHomeAirport,
                 )
                 HairLine()
                 RowLink(
@@ -233,12 +238,15 @@ private fun RowLink(
     title: String,
     subtitle: String? = null,
     value: String? = null,
-    onClick: () -> Unit,
+    // Null means the row states something rather than leading somewhere. It
+    // then loses its chevron too — a chevron on a row that does not move is
+    // the app promising something it will not do.
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = Space.s4, vertical = Space.s3),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
@@ -258,11 +266,40 @@ private fun RowLink(
         value?.let {
             Text(it, style = MaterialTheme.typography.labelLarge, color = Ink.inkSoft, maxLines = 1)
         }
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = Ink.muted,
-            modifier = Modifier.size(20.dp),
+        if (onClick != null) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Ink.muted,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+/** One number over one word: the tiles inside the device card. */
+@Composable
+private fun Stat(value: Int, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(Radius.sm))
+            .background(Ink.surfaceSoft)
+            .padding(vertical = Space.s3, horizontal = Space.s2),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            Money.isolate(value.toString()),
+            style = MaterialTheme.typography.headlineSmall,
+            color = Ink.ink,
+            maxLines = 1,
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Ink.muted,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 2,
         )
     }
 }

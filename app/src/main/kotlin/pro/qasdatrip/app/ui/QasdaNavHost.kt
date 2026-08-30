@@ -3,9 +3,9 @@ package pro.qasdatrip.app.ui
 import android.content.Intent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +66,9 @@ private const val TRACKING = "tracking"
 private const val TRACK_NEW = "track-new"
 private const val TRACK_HISTORY = "track-history"
 private const val NOTIFICATIONS = "notifications"
+private const val FILTERS = "filters"
+private const val CHART = "chart"
+private const val PICK_HOME = "pick-home"
 
 /**
  * The hosts a manage link can arrive from. dev is here because that is where
@@ -83,14 +87,23 @@ private enum class Tab(val route: String, val label: (Words) -> String) {
     ACCOUNT_TAB(ACCOUNT, { it.navAccount }),
 }
 
+/**
+ * The bar's glyphs, outlined in every state.
+ *
+ * They were the filled set, which is Material's default pairing — outline
+ * when idle, solid when chosen. The drawn bar does not do that: all four
+ * stay line drawings and the colour alone says which one you are on. That is
+ * the lighter, more current look, and it is what the design says, so it wins
+ * over the framework's habit.
+ */
 @Composable
 private fun TabIcon(tab: Tab) = when (tab) {
-    Tab.HOME -> Icon(Icons.Filled.Home, contentDescription = null)
-    Tab.TRACKING_TAB -> Icon(Icons.Filled.Notifications, contentDescription = null)
+    Tab.HOME -> Icon(Icons.Outlined.Home, contentDescription = null)
+    Tab.TRACKING_TAB -> Icon(Icons.Outlined.Notifications, contentDescription = null)
     // Material core ships Info but no question mark, and this tab is help
     // rather than about.
     Tab.HELP_TAB -> Icon(painterResource(R.drawable.ic_help), contentDescription = null)
-    Tab.ACCOUNT_TAB -> Icon(Icons.Filled.Person, contentDescription = null)
+    Tab.ACCOUNT_TAB -> Icon(Icons.Outlined.Person, contentDescription = null)
 }
 
 @Composable
@@ -105,6 +118,10 @@ fun QasdaNavHost(
     onManageKey: (ManageKey?) -> Unit = {},
     readDevice: () -> DeviceKey? = { null },
     onDeviceKey: (DeviceKey?) -> Unit = {},
+    homeAirport: String? = null,
+    onHomeAirport: (String) -> Unit = {},
+    alertsSeenAt: Long = 0L,
+    onAlertsSeen: () -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -121,6 +138,13 @@ fun QasdaNavHost(
     // so walking between them cannot lose it.
     val form: SearchFormViewModel = viewModel()
     val draft by form.draft.collectAsStateWithLifecycle()
+
+    // Somebody who told us where they live should not be handed Alger every
+    // time the app opens. Keyed on the setting, so it seeds the draft once
+    // and does not fight with a route they are in the middle of changing.
+    LaunchedEffect(homeAirport) {
+        homeAirport?.let { form.from(it) }
+    }
 
     val tracking: TrackingViewModel = viewModel(factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
@@ -179,7 +203,7 @@ fun QasdaNavHost(
     // do one thing and leave — a filter sheet, a fare's detail, a step of the
     // search, a handover to a booking site — does not, because the bar there
     // competes with the one action the screen exists for.
-    val withTabBar = setOf(SEARCH, RESULTS, CALENDAR, TRACKING, HELP, ACCOUNT)
+    val withTabBar = setOf(SEARCH, RESULTS, CALENDAR, CHART, TRACKING, NOTIFICATIONS, HELP, ACCOUNT)
     val onTopLevel = route in withTabBar
 
 
@@ -206,7 +230,7 @@ fun QasdaNavHost(
                         // own pages: standing on them, Accueil is where you
                         // are, not somewhere else to go.
                         val selected = when (tab) {
-                            Tab.HOME -> route == SEARCH || route == RESULTS || route == CALENDAR
+                            Tab.HOME -> route == SEARCH || route == RESULTS || route == CALENDAR || route == CHART
                             else -> here?.hierarchy?.any {
                                 it.route?.substringBefore('?') == tab.route
                             } == true
@@ -240,7 +264,11 @@ fun QasdaNavHost(
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = Ink.accentDeep,
                                 selectedTextColor = Ink.accentDeep,
-                                indicatorColor = Ink.accentSoft,
+                                // No pill. Material draws a filled capsule
+                                // behind the chosen glyph; the design does
+                                // not, and on a bar this short the capsule
+                                // reads as a button somebody left pressed.
+                                indicatorColor = Color.Transparent,
                                 unselectedIconColor = Ink.muted,
                                 unselectedTextColor = Ink.muted,
                             ),
@@ -254,6 +282,12 @@ fun QasdaNavHost(
             navController = nav,
             startDestination = SEARCH,
             modifier = Modifier.padding(padding),
+            // Set once, here, so every page gets the same motion and no
+            // screen can quietly ship with the framework default.
+            enterTransition = Motion.enter,
+            exitTransition = Motion.exit,
+            popEnterTransition = Motion.popEnter,
+            popExitTransition = Motion.popExit,
         ) {
             // The staged search: home, then one page per answer, then a look
             // at all four before four sites are asked.
@@ -274,6 +308,7 @@ fun QasdaNavHost(
                     onPickDates = { nav.navigate(PICK_DATES) },
                     onPickTravellers = { nav.navigate(PICK_TRAVELLERS) },
                     onSearch = runSearch,
+                    onLanguage = { nav.navigate(SETTINGS) },
                     onRecent = { past ->
                         // A trip whose date has gone is still a useful
                         // shortcut — the route and the passengers are right —
@@ -372,9 +407,14 @@ fun QasdaNavHost(
                     },
                     onFilters = { vm.filter(it) },
                     onSort = { vm.sortBy(it) },
+                    onOpenFilters = { nav.navigate(FILTERS) },
                     onCalendar = {
                         vm.loadCalendar()
                         nav.navigate(CALENDAR)
+                    },
+                    onChart = {
+                        vm.loadCalendar()
+                        nav.navigate(CHART)
                     },
                     onPickDate = { depart, back -> searchDate(depart, back) },
                     onTrack = {
@@ -383,6 +423,25 @@ fun QasdaNavHost(
                     },
                 )
             }
+            // The filters are a page now, not a sheet — see FiltersScreen for
+            // why. It reads the unfiltered list so the counts it shows are
+            // about everything the sites sent, not about what survived the
+            // filters already applied.
+            composable(FILTERS) {
+                FiltersScreen(
+                    current = state.filters,
+                    flights = state.flights,
+                    sort = state.sort,
+                    onApply = {
+                        vm.filter(it)
+                        nav.popBackStack()
+                    },
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            // One screen, two readings. Both routes land on the same page and
+            // differ only in which half of the segmented control is lit, so
+            // switching between them costs nothing and neither is a dead end.
             composable(CALENDAR) {
                 CalendarScreen(
                     calendar = state.calendar,
@@ -396,6 +455,22 @@ fun QasdaNavHost(
                         nav.popBackStack()
                     },
                     onBack = { nav.popBackStack() },
+                )
+            }
+            composable(CHART) {
+                CalendarScreen(
+                    calendar = state.calendar,
+                    loading = state.calendarLoading,
+                    chosenDepart = state.query?.departDate,
+                    chosenReturn = state.query?.returnDate,
+                    origin = state.query?.from,
+                    destination = state.query?.to,
+                    onPick = { depart, back ->
+                        searchDate(depart, back)
+                        nav.popBackStack()
+                    },
+                    onBack = { nav.popBackStack() },
+                    startOnChart = true,
                 )
             }
             composable(DETAILS) {
@@ -471,6 +546,8 @@ fun QasdaNavHost(
                         }
                     },
                     onBack = { nav.popBackStack() },
+                    seenAt = alertsSeenAt,
+                    onMarkAllRead = onAlertsSeen,
                 )
             }
             composable(TRACK_NEW) {
@@ -548,9 +625,29 @@ fun QasdaNavHost(
                     chosenLang = chosenLang,
                     versionName = BuildConfig.VERSION_NAME,
                     activeWatches = trackState.watches.size,
+                    notifications = trackState.alerts.size,
+                    searches = recent.size,
+                    homeAirport = homeAirport,
                     onSettings = { nav.navigate(SETTINGS) },
+                    onHomeAirport = { nav.navigate(PICK_HOME) },
                     onAbout = { nav.navigate(ABOUT) },
                     onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
+                )
+            }
+            // The same picker the search uses, answering a different
+            // question. Rebuilding it here would be a second list of Algerian
+            // airports to keep in step with the first.
+            composable(PICK_HOME) {
+                AirportStepScreen(
+                    originSide = true,
+                    step = 0,
+                    subtitle = null,
+                    onPick = { airport ->
+                        onHomeAirport(airport.iata)
+                        form.from(airport.iata)
+                        nav.popBackStack()
+                    },
+                    onBack = { nav.popBackStack() },
                 )
             }
             composable(SETTINGS) {

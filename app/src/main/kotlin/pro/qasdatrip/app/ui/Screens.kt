@@ -8,7 +8,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -53,6 +51,7 @@ import pro.qasdatrip.app.ui.theme.LocalLang
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
+import pro.qasdatrip.core.Airlines
 import pro.qasdatrip.core.Airports
 import pro.qasdatrip.core.Cabin
 import pro.qasdatrip.core.Filters
@@ -61,7 +60,6 @@ import pro.qasdatrip.core.FlightList
 import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.routeArrow
 import pro.qasdatrip.core.SearchQuery
-import pro.qasdatrip.core.TimeBand
 import pro.qasdatrip.core.Words
 import pro.qasdatrip.core.SearchEvent
 import pro.qasdatrip.core.SortBy
@@ -82,30 +80,18 @@ fun ResultsScreen(
     onFilters: (Filters) -> Unit = {},
     onSort: (SortBy) -> Unit = {},
     onCalendar: () -> Unit = {},
+    onChart: () -> Unit = {},
+    onOpenFilters: () -> Unit = {},
     onPickDate: (depart: String, back: String?) -> Unit = { _, _ -> },
     onTrack: () -> Unit = {},
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
-    var sheetOpen by remember { mutableStateOf(false) }
 
     // What the list is showing, after the narrowing and the ordering. The
     // unfiltered list stays in state so the sheet can count what a change
     // would leave behind without touching what is on screen.
     val shown = FlightList.apply(state.flights, state.filters, state.sort)
-
-    if (sheetOpen) {
-        FilterSheet(
-            current = state.filters,
-            priceCeiling = state.flights.mapNotNull { it.cheapest?.second }.maxOrNull(),
-            matchCount = { candidate -> FlightList.apply(state.flights, candidate, state.sort).size },
-            onDismiss = { sheetOpen = false },
-            onApply = { chosen ->
-                onFilters(chosen)
-                sheetOpen = false
-            },
-        )
-    }
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         SearchSummaryBar(state, onEdit)
@@ -130,11 +116,21 @@ fun ResultsScreen(
         if (state.failed == null && !state.empty) {
             ControlsRow(
                 filters = state.filters,
-                onOpenFilters = { sheetOpen = true },
-                onFilters = onFilters,
+                onOpenFilters = onOpenFilters,
                 onCalendar = onCalendar,
-                onTrack = onTrack,
+                onChart = onChart,
             )
+            // The carriers, above the count, computed from everything the
+            // sites sent rather than from what is currently on screen — see
+            // FlightList.airlinesOn for why that matters.
+            if (shown.isNotEmpty() || !state.running) {
+                Spacer(modifier = Modifier.height(Space.s3))
+                AirlineRail(
+                    airlines = FlightList.airlinesOn(state.flights) { Airlines.name(it) },
+                    selected = state.filters.airlines,
+                    onSelect = { picked -> onFilters(state.filters.copy(airlines = picked)) },
+                )
+            }
             // Nothing to count and nothing to order until the first offer is
             // in. Left in, it repeated the loading screen's own caption a
             // finger's width above it.
@@ -341,65 +337,44 @@ private fun Bone(widthFraction: Float, alpha: Float, height: androidx.compose.ui
 private fun ControlsRow(
     filters: Filters,
     onOpenFilters: () -> Unit,
-    onFilters: (Filters) -> Unit,
     onCalendar: () -> Unit = {},
-    onTrack: () -> Unit = {},
+    onChart: () -> Unit = {},
 ) {
     val words = LocalWords.current
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Space.s2),
+    // Three equal controls, side by side and full width, exactly as drawn.
+    //
+    // There used to be a second row of loose chips under this one — Direct,
+    // Matin, and a "track this route" that had no business sitting among
+    // filters. They were a shortcut to two of the choices the filters page
+    // already offers, drawn in a different shape, so the same question had
+    // two answers on one screen and neither showed the other's state. The
+    // page is one tap away and shows all of them at once.
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4),
+        horizontalArrangement = Arrangement.spacedBy(Space.s2),
     ) {
-        // Two equal controls, side by side and full width, exactly as the
-        // mobile site has them. They were chips in a scrolling rail before,
-        // which put the price calendar — the thing that answers "is this a
-        // bad day to fly?" — off the right-hand edge of the screen where
-        // nobody found it.
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4),
-            horizontalArrangement = Arrangement.spacedBy(Space.s2),
-        ) {
-            ToolButton(
-                label = if (filters.isEmpty) words.filters
-                else "${words.filters} · ${Money.isolate(filters.active.toString())}",
-                icon = R.drawable.ic_sliders,
-                on = !filters.isEmpty,
-                onClick = onOpenFilters,
-                modifier = Modifier.weight(1f),
-            )
-            ToolButton(
-                label = words.priceCalendar,
-                icon = R.drawable.ic_calendar,
-                on = false,
-                onClick = onCalendar,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        // Underneath, the two narrowings people actually reach for, and the
-        // one thing you can do with a route rather than to a list.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = Space.s4),
-            horizontalArrangement = Arrangement.spacedBy(Space.s2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Chip(
-                label = words.direct,
-                on = filters.maxStops == 0,
-                onClick = { onFilters(filters.copy(maxStops = if (filters.maxStops == 0) null else 0)) },
-            )
-            Chip(
-                label = words.morning,
-                on = filters.departBands == setOf(TimeBand.MORNING),
-                onClick = {
-                    val already = filters.departBands == setOf(TimeBand.MORNING)
-                    onFilters(filters.copy(departBands = if (already) emptySet() else setOf(TimeBand.MORNING)))
-                },
-            )
-            Chip(label = words.trackRoute, on = false, onClick = onTrack)
-        }
+        ToolButton(
+            label = if (filters.isEmpty) words.filters
+            else "${words.filters} · ${Money.isolate(filters.active.toString())}",
+            icon = R.drawable.ic_sliders,
+            on = !filters.isEmpty,
+            onClick = onOpenFilters,
+            modifier = Modifier.weight(1f),
+        )
+        ToolButton(
+            label = words.calendarTab,
+            icon = R.drawable.ic_calendar,
+            on = false,
+            onClick = onCalendar,
+            modifier = Modifier.weight(1f),
+        )
+        ToolButton(
+            label = words.priceChart,
+            icon = R.drawable.ic_chart,
+            on = false,
+            onClick = onChart,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -435,41 +410,6 @@ private fun ToolButton(
             color = if (on) Ink.accentDeep else Ink.ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-/** 32dp tall, 8dp corners, 13sp medium — the chip from the design system. */
-@Composable
-private fun Chip(
-    label: String,
-    on: Boolean,
-    onClick: () -> Unit,
-    @androidx.annotation.DrawableRes icon: Int? = null,
-) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(Radius.sm))
-            .background(if (on) Ink.accentSoft else Ink.surface)
-            .border(1.dp, if (on) Ink.accentUi else Ink.lineStrong, RoundedCornerShape(Radius.sm))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        icon?.let {
-            Icon(
-                painter = painterResource(it),
-                contentDescription = null,
-                tint = if (on) Ink.accentDeep else Ink.ink,
-                modifier = Modifier.size(14.dp),
-            )
-        }
-        Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (on) Ink.accentDeep else Ink.ink,
-            maxLines = 1,
         )
     }
 }
@@ -520,24 +460,30 @@ private fun SortRow(
             overflow = TextOverflow.Ellipsis,
         )
         Box {
+            // A bordered pill, as drawn. Bare text with an icon read as a
+            // label rather than a control, and the one complaint people had
+            // about this row was not knowing the ordering could be changed.
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(Radius.sm))
+                    .clip(RoundedCornerShape(Radius.pill))
+                    .background(Ink.surface)
+                    .border(1.dp, Ink.lineStrong, RoundedCornerShape(Radius.pill))
                     .clickable { open = true }
-                    .padding(horizontal = Space.s2, vertical = Space.s1),
+                    .padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_sort),
-                    contentDescription = null,
-                    tint = Ink.accentDeep,
-                    modifier = Modifier.size(14.dp),
-                )
                 Text(
-                    labelFor(sort, words),
+                    "${words.sortBy} : ${labelFor(sort, words).lowercase()}",
                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Ink.accentDeep,
+                    color = Ink.ink,
+                    maxLines = 1,
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_down),
+                    contentDescription = null,
+                    tint = Ink.inkSoft,
+                    modifier = Modifier.size(14.dp),
                 )
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
@@ -577,49 +523,21 @@ private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
     val lang = LocalLang.current
     val words = LocalWords.current
     val q = state.query ?: return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Space.s4, vertical = Space.s3),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Space.s4),
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = null,
-            tint = Ink.ink,
-            modifier = Modifier.size(22.dp).clickable(onClick = onEdit),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                "${cityName(q.from, lang)} ${routeArrow(lang)} ${cityName(q.to, lang)}",
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            // Dates, travellers and cabin on one grey line: three answers
-            // somebody already gave, worth confirming and not worth a row
-            // each.
-            Text(
-                tripLine(q, lang, words),
-                style = MaterialTheme.typography.labelMedium,
-                color = Ink.muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+    // The shared bar, not a hand-rolled one. This screen used to draw its own
+    // 22dp arrow on the canvas while every other screen wore the 40dp circle,
+    // so the most-used back button in the app was the smallest and the least
+    // like the rest of it.
+    QasdaAppBar(
+        title = "${cityName(q.from, lang)} ${routeArrow(lang)} ${cityName(q.to, lang)}",
+        // Dates, travellers and cabin on one grey line: three answers
+        // somebody already gave, worth confirming and not worth a row each.
+        subtitle = tripLine(q, lang, words),
+        onBack = onEdit,
         // "Search" on this control meant "go back and change the search",
         // which is not what the word says.
-        Text(
-            words.edit,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = Ink.accentDeep,
-            modifier = Modifier
-                .clip(RoundedCornerShape(Radius.sm))
-                .clickable(onClick = onEdit)
-                .padding(horizontal = Space.s2, vertical = Space.s1),
-        )
-    }
+        actionLabel = words.edit,
+        onAction = onEdit,
+    )
 }
 
 private fun tripLine(q: SearchQuery, lang: pro.qasdatrip.core.Lang, words: Words): String {

@@ -55,7 +55,13 @@ fun HelpScreen(onContact: () -> Unit) {
         contentPadding = PaddingValues(Space.s4),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
-        item { Text(words.navHelp, style = MaterialTheme.typography.displaySmall) }
+        item {
+            QasdaAppBar(
+                title = words.navHelp,
+                large = true,
+                modifier = Modifier.padding(horizontal = 0.dp),
+            )
+        }
 
         groups.forEach { group ->
             item {

@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pro.qasdatrip.app.R
@@ -67,6 +68,7 @@ fun SearchScreen(
     onPickTravellers: () -> Unit,
     onSearch: () -> Unit,
     onRecent: (SearchQuery) -> Unit,
+    onLanguage: () -> Unit = {},
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
@@ -80,19 +82,29 @@ fun SearchScreen(
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(Space.s1)) {
-            // The product's name, not a slogan. This is the first screen of an
-            // app somebody chose to open; they know what it is for, and the
-            // headline's job is to say where they are.
-            Text(words.appName, style = MaterialTheme.typography.displaySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // The product's name, not a slogan. This is the first screen
+                // of an app somebody chose to open; they know what it is for,
+                // and the headline's job is to say where they are.
+                Text(
+                    words.appName,
+                    style = MaterialTheme.typography.displaySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                // Two letters, top right, as drawn.
+                //
+                // The language lived only inside Compte → Réglages, which is
+                // three taps from here and behind a word somebody who cannot
+                // read the current language cannot read either. This app is
+                // used in a country where the same person switches between
+                // French and Arabic mid-sentence; the switch belongs where
+                // they can see it.
+                LanguagePill(lang, onLanguage)
+            }
             Text(words.heroSub, style = MaterialTheme.typography.bodyLarge, color = Ink.muted)
         }
 
         OfflineBanner()
-
-        TripToggle(
-            roundTrip = draft.roundTrip,
-            onChange = onRoundTrip,
-        )
 
         // One card, not five loose boxes. The four fields and the button are
         // a single question, and a card that holds them says so; separately
@@ -106,6 +118,12 @@ fun SearchScreen(
                 .padding(Space.s3),
             verticalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
+            // Inside the card, not above it. One way against round trip is
+            // the first thing the card asks, not a setting that applies to
+            // the card from outside — and drawn above it, it read as a filter
+            // over the whole screen.
+            TripToggle(roundTrip = draft.roundTrip, onChange = onRoundTrip)
+
             // The swap control sits over the seam between the two fields,
             // which is where the journey turns around. Somebody going home
             // after a holiday is running the same search backwards, and
@@ -115,12 +133,14 @@ fun SearchScreen(
                     Field(
                         label = words.from,
                         value = "${cityName(draft.from, lang)} (${draft.from})",
+                        icon = R.drawable.ic_pin,
                         trailingSpace = true,
                         onClick = onPickFrom,
                     )
                     Field(
                         label = words.to,
                         value = "${cityName(draft.to, lang)} (${draft.to})",
+                        icon = R.drawable.ic_pin,
                         trailingSpace = true,
                         onClick = onPickTo,
                     )
@@ -151,7 +171,7 @@ fun SearchScreen(
             // a small phone.
             Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
                 Field(
-                    label = if (draft.roundTrip) words.dates else words.outbound,
+                    label = words.dates,
                     value = datesLabel(draft, lang, words.chooseDates),
                     muted = draft.depart == null,
                     modifier = Modifier.weight(1f),
@@ -188,8 +208,27 @@ fun SearchScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = Ink.muted,
             )
-            recent.take(3).forEach { past ->
-                RecentRow(past, lang) { onRecent(past) }
+            // One card with hairlines, not three floating ones. Three cards
+            // read as three offers; this is one list of things you have
+            // already asked, and the shape should say so.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(Radius.md))
+                    .background(Ink.surface)
+                    .border(1.dp, Ink.line, RoundedCornerShape(Radius.md)),
+            ) {
+                recent.take(3).forEachIndexed { index, past ->
+                    if (index > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Ink.line),
+                        )
+                    }
+                    RecentRow(past, lang) { onRecent(past) }
+                }
             }
         }
     }
@@ -205,9 +244,6 @@ private fun RecentRow(query: SearchQuery, lang: Lang, onPick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(Radius.md))
-            .background(Ink.surface)
-            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
             .clickable(onClick = onPick)
             .padding(Space.s4),
         verticalAlignment = Alignment.CenterVertically,
@@ -249,10 +285,11 @@ private fun Field(
     value: String,
     muted: Boolean = false,
     trailingSpace: Boolean = false,
+    @androidx.annotation.DrawableRes icon: Int? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Column(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.sm))
@@ -267,17 +304,47 @@ private fun Field(
                 top = 10.dp,
                 bottom = 10.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Ink.muted, maxLines = 1)
-        Text(
-            value,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (muted) Ink.muted else Ink.ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        icon?.let {
+            Icon(
+                painter = painterResource(it),
+                contentDescription = null,
+                tint = Ink.muted,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Ink.muted, maxLines = 1)
+            Text(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (muted) Ink.muted else Ink.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
+}
+
+/** The current language, as two letters in a pill. Tapping opens the picker. */
+@Composable
+private fun LanguagePill(lang: Lang, onClick: () -> Unit) {
+    Text(
+        text = lang.tag.uppercase(),
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+        color = Ink.ink,
+        modifier = Modifier
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(Ink.surface)
+            .border(1.dp, Ink.lineStrong, RoundedCornerShape(Radius.pill))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+    )
 }
 
 /**

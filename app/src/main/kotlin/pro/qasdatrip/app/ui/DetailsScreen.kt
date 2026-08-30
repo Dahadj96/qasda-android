@@ -18,6 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import pro.qasdatrip.app.R
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,20 +92,35 @@ fun DetailsScreen(
     val best = quotes.firstOrNull()
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
-        DetailsBar(flight, onBack)
+        // The page is titled by what it is, not by which airline it happens
+        // to be about. The airline is the first thing inside it — see
+        // OfferSummary — where it can carry the date, the stops and the total
+        // time with it instead of being squeezed into a bar.
+        QasdaAppBar(title = words.offerDetails, onBack = onBack)
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(Space.s4),
             verticalArrangement = Arrangement.spacedBy(Space.s4),
         ) {
+            item { OfferSummary(flight) }
+
+            item {
+                Text(
+                    words.itinerary.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Ink.muted,
+                )
+            }
             flight.outbound?.let { leg -> item { LegCard(leg, if (flight.inbound != null) words.outbound else null) } }
             flight.inbound?.let { leg -> item { LegCard(leg, words.inbound) } }
 
             if (quotes.isNotEmpty()) {
                 item {
                     Text(
-                        words.compareSites.uppercase(),
+                        words.sameFlightOn
+                            .replace("{n}", Money.isolate(quotes.size.toString()))
+                            .uppercase(),
                         style = MaterialTheme.typography.labelSmall,
                         color = Ink.muted,
                     )
@@ -142,19 +163,36 @@ fun DetailsScreen(
                 .padding(horizontal = Space.s4, vertical = Space.s3),
             verticalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
-            best?.let { (site, _) ->
+            best?.let { (site, amount) ->
                 Button(
                     onClick = { onBook(site) },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(Radius.pill),
                     colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
                 ) {
-                    // Naming the site is the warning: this leaves the app,
-                    // and the ticket is theirs to sell, not ours.
-                    Text(
-                        words.bookOn.replace("{site}", Sites.name(site)),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        // Naming the site is the warning: this leaves the
+                        // app, and the ticket is theirs to sell, not ours.
+                        // The price is on the button because it is the price
+                        // being agreed to, and a button that says only
+                        // "Book on Vola" makes somebody scroll back up to
+                        // check what they are about to spend.
+                        Text(
+                            "${words.bookOn.replace("{site}", Sites.name(site))} · ${Money.format(amount, lang)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Icon(
+                            painter = painterResource(R.drawable.ic_external),
+                            contentDescription = null,
+                            tint = Ink.inverse,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                 }
             }
             OutlinedButton(
@@ -162,7 +200,18 @@ fun DetailsScreen(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(Radius.pill),
             ) {
-                Text(words.trackRoute, style = MaterialTheme.typography.titleMedium, color = Ink.ink)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(words.trackRoute, style = MaterialTheme.typography.titleMedium, color = Ink.ink)
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = null,
+                        tint = Ink.ink,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
             }
         }
     }
@@ -528,11 +577,88 @@ private fun SiteRow(site: String, amount: Double, seats: Int?, best: Boolean) {
                 )
             }
         }
+        if (best) {
+            // Said, not just tinted. A green row is a colour somebody has to
+            // interpret; the word is the same information with nothing left
+            // to work out, and it survives being colour-blind.
+            Text(
+                words.cheaper,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = Ink.accentDeep,
+            )
+        }
         Text(
             Money.format(amount, lang),
             style = MaterialTheme.typography.titleLarge,
             color = if (best) Ink.accentDeep else Ink.ink,
         )
+    }
+}
+
+/**
+ * What this offer is, above everything else on the page.
+ *
+ * The airline used to live in the bar, which gave it no room for the three
+ * facts that decide whether the rest of the page is worth reading: which day
+ * it flies, how many stops it makes, and how long the whole thing takes. A
+ * card can carry all three, and the chips under them carry the conditions —
+ * bag, seats left, whether it can be changed — that people otherwise scroll
+ * to the bottom to find.
+ */
+@Composable
+private fun OfferSummary(flight: Flight) {
+    val words = LocalWords.current
+    val lang = LocalLang.current
+    val leg = flight.outboundOrSelf
+    val airline = leg?.operatingAirline ?: flight.airline
+    val stops = leg?.stopCount ?: flight.stops
+
+    val facts = listOfNotNull(
+        leg?.departureDate?.takeIf { it.isNotBlank() }?.let { formatDateLong(it, lang) },
+        when {
+            stops == null -> null
+            stops == 0 -> words.direct
+            stops == 1 -> words.stopsOne
+            else -> words.stopsMany.replace("{n}", Money.isolate(stops.toString()))
+        },
+        (leg?.duration ?: flight.duration)?.takeIf { it.isNotBlank() }?.let {
+            words.totalTime.replace("{duration}", it)
+        },
+    ).joinToString(" · ")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.md))
+            .background(Ink.surface)
+            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
+            .padding(Space.s4),
+        verticalArrangement = Arrangement.spacedBy(Space.s3),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Space.s3),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AirlineLogo(code = airline, size = 40.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    Airlines.name(airline),
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (facts.isNotEmpty()) {
+                    Text(
+                        Money.isolate(facts),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Ink.muted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        SummaryTags(flight)
     }
 }
 
@@ -657,4 +783,43 @@ private fun stopsText(stops: Int?, words: Words): String? = when (stops) {
     0 -> words.direct
     1 -> words.stopsOne
     else -> words.stopsMany.replace("{n}", Money.isolate(stops.toString()))
+}
+
+/**
+ * The fare's conditions, as chips, at the top rather than the bottom.
+ *
+ * Bag, seats left and whether it can be changed are the three things that
+ * turn a cheap fare into an expensive one, and they were three cards below
+ * the fold. A traveller comparing two offers reads them before the times.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SummaryTags(flight: Flight) {
+    val words = LocalWords.current
+    val tags = buildList {
+        if (flight.hasLuggage) add(Triple(words.bagIncluded, Ink.accentDeep, Ink.accentSoft))
+        // A fare with no checked bag is not the same fare at a lower price,
+        // and every list in this app sorts on price. Leaving this out would
+        // let the cheapest offer on screen be cheapest only because
+        // something had been taken out of it.
+        else add(Triple(words.bagNone, Ink.alert, Ink.alertSoft))
+
+        Seats.left(flight.seatsAvailable)?.let { n ->
+            add(Triple(seatsLabel(n, words), Ink.notice, Ink.noticeSoft))
+        }
+        flight.fareRules?.let { rules ->
+            when (rules.changeable) {
+                true -> add(Triple(words.changeable, Ink.inkSoft, Ink.surfaceSoft))
+                false -> add(Triple(words.nonChangeable, Ink.alert, Ink.alertSoft))
+                null -> Unit
+            }
+        }
+    }
+    if (tags.isEmpty()) return
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Space.s2),
+        verticalArrangement = Arrangement.spacedBy(Space.s2),
+    ) {
+        tags.forEach { (text, fg, bg) -> Tag(text, fg = fg, bg = bg) }
+    }
 }

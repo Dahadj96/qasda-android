@@ -37,6 +37,36 @@ class Settings(context: Context) {
         }
 
     /**
+     * The airport somebody flies out of.
+     *
+     * Almost every search in this product starts from the same place — people
+     * live somewhere — and the app was defaulting everyone to Alger. That is
+     * right for most of the country and wrong for Oran and Constantine every
+     * single time, which is a small tax paid on every search forever.
+     *
+     * Null means "never said", and the default stands.
+     */
+    var homeAirport: String?
+        get() = prefs.getString(KEY_HOME_AIRPORT, null)?.takeIf { it.isNotBlank() }
+        set(value) {
+            prefs.edit().apply {
+                if (value.isNullOrBlank()) remove(KEY_HOME_AIRPORT) else putString(KEY_HOME_AIRPORT, value)
+            }.apply()
+        }
+
+    /**
+     * When this phone last looked at its notifications, as epoch millis.
+     *
+     * Local, and staying local. The server is never told what has been read:
+     * an alert history that knows which messages somebody opened is a
+     * behavioural record, and this product does not keep one. The dot on the
+     * list is drawn by comparing each alert's own timestamp against this.
+     */
+    var alertsSeenAt: Long
+        get() = prefs.getLong(KEY_ALERTS_SEEN, 0L)
+        set(value) { prefs.edit().putLong(KEY_ALERTS_SEEN, value).apply() }
+
+    /**
      * The last few searches, newest first.
      *
      * The question is kept, never the answer: a price from last week is not a
@@ -140,6 +170,8 @@ class Settings(context: Context) {
     private companion object {
         const val KEY_LANG = "lang"
         const val KEY_RECENT = "recent_searches"
+        const val KEY_HOME_AIRPORT = "home_airport"
+        const val KEY_ALERTS_SEEN = "alerts_seen_at"
         const val KEY_WATCHER = "alert_watcher_id"
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_DEVICE_WATCHER = "device_watcher_id"

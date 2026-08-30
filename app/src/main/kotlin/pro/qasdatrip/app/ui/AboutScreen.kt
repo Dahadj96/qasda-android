@@ -58,25 +58,14 @@ fun AboutScreen(
     val words = LocalWords.current
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Ink.surface).padding(Space.s4),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Space.s3),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp).clickable(onClick = onBack),
-            )
-            Column {
-                Text(words.aboutTitle, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "${words.appName} ${Money.isolate(versionName)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Ink.muted,
-                )
-            }
-        }
+        // The shared bar. This screen drew its own — a bare arrow on a white
+        // strip — which made the back control here a different size and a
+        // different shape from the one on every other page.
+        QasdaAppBar(
+            title = words.aboutTitle,
+            subtitle = "${words.appName} ${Money.isolate(versionName)}",
+            onBack = onBack,
+        )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),

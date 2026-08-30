@@ -16,7 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -46,10 +46,11 @@ import pro.qasdatrip.core.routeArrow
  * there has to be somewhere it went. This is that place: the same news, in
  * full, still linked to the search that produced it.
  *
- * There is no unread state, here or on the server. Whether a phone has shown
- * a notification is the phone's business, and the moment that is stored
- * server-side it becomes a record of what somebody has read. What is shown
- * instead is what actually happened — the price then, the price now, and how
+ * Unread lives on this phone and nowhere else. Whether a notification has
+ * been seen is the phone's business, and the moment that is stored
+ * server-side it becomes a record of what somebody has read — so the dot is
+ * drawn from a timestamp in this device's own preferences and nothing about
+ * it is ever sent back. Alongside it is what actually happened — the price then, the price now, and how
  * long ago the price was seen, because a number from six hours ago is not a
  * quote and this screen must not read like one.
  */
@@ -59,6 +60,16 @@ fun NotificationsScreen(
     onLoad: () -> Unit,
     onOpen: (Alert) -> Unit,
     onBack: () -> Unit,
+    /**
+     * When this phone last opened this screen, as epoch millis.
+     *
+     * Unread is computed here and stored here, on the device, and never sent
+     * anywhere. That keeps the dot the design asks for without the server
+     * ever holding a record of what somebody has read — which is the line
+     * this product does not cross.
+     */
+    seenAt: Long = 0L,
+    onMarkAllRead: () -> Unit = {},
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
@@ -68,8 +79,18 @@ fun NotificationsScreen(
     // it can, not the first time it happens to be launched afterwards.
     LaunchedEffect(Unit) { onLoad() }
 
+    val unread = state.alerts.count { (parseInstant(it.at) ?: 0L) > seenAt }
+
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
-        QasdaAppBar(title = words.notificationsTitle, onBack = onBack)
+        QasdaAppBar(
+            title = words.notificationsTitle,
+            onBack = onBack,
+            // Offered only when it would do something. "Mark all read" over
+            // a list with nothing unread is a button that reports success at
+            // having changed nothing.
+            actionLabel = words.markAllRead.takeIf { unread > 0 },
+            onAction = onMarkAllRead,
+        )
 
         if (state.alertsLoading && state.alerts.isEmpty()) {
             Row(
@@ -83,7 +104,11 @@ fun NotificationsScreen(
             contentPadding = PaddingValues(bottom = Space.s6),
         ) {
             itemsIndexed(state.alerts, key = { i, a -> "$i:${a.id}" }) { _, alert ->
-                AlertRow(alert = alert, onClick = { onOpen(alert) })
+                AlertRow(
+                    alert = alert,
+                    unread = (parseInstant(alert.at) ?: 0L) > seenAt,
+                    onClick = { onOpen(alert) },
+                )
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Ink.line))
             }
 
@@ -99,7 +124,7 @@ fun NotificationsScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                Icons.Filled.Notifications,
+                                Icons.Outlined.Notifications,
                                 contentDescription = null,
                                 tint = Ink.muted,
                                 modifier = Modifier.size(24.dp),
@@ -136,7 +161,7 @@ fun NotificationsScreen(
  * what happened to it.
  */
 @Composable
-private fun AlertRow(alert: Alert, onClick: () -> Unit) {
+private fun AlertRow(alert: Alert, unread: Boolean, onClick: () -> Unit) {
     val words = LocalWords.current
     val lang = LocalLang.current
     val seat = alert.seat
@@ -144,7 +169,10 @@ private fun AlertRow(alert: Alert, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Ink.surface)
+            // The tint is the second half of the same signal as the dot. One
+            // of them alone is easy to miss on a list read at a glance; a
+            // dot that is also a lighter row is not.
+            .background(if (unread) Ink.surface else Ink.canvas)
             .clickable(onClick = onClick)
             .padding(horizontal = Space.s4, vertical = Space.s3),
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
@@ -158,7 +186,7 @@ private fun AlertRow(alert: Alert, onClick: () -> Unit) {
         ) {
             if (seat) {
                 Icon(
-                    Icons.Filled.Notifications,
+                    Icons.Outlined.Notifications,
                     contentDescription = null,
                     tint = Ink.notice,
                     modifier = Modifier.size(18.dp),
@@ -199,6 +227,21 @@ private fun AlertRow(alert: Alert, onClick: () -> Unit) {
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Ink.muted,
+            )
+            // How old this is, in the only unit that matters here. A price
+            // seen three days ago is not a price, and the row has to say so
+            // before somebody acts on it.
+            relativeTime(alert.at, words)?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
+            }
+        }
+        if (unread) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .size(9.dp)
+                    .clip(CircleShape)
+                    .background(Ink.accentUi),
             )
         }
     }

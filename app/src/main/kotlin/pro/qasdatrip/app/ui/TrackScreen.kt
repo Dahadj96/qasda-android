@@ -16,7 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -236,7 +236,7 @@ private fun Confirmation(onDone: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Filled.Notifications,
+                Icons.Outlined.Notifications,
                 contentDescription = null,
                 tint = Ink.accentDeep,
                 modifier = Modifier.size(28.dp),
@@ -310,7 +310,7 @@ private fun Rule(
                 )
             } else {
                 Icon(
-                    Icons.Filled.Notifications,
+                    Icons.Outlined.Notifications,
                     contentDescription = null,
                     tint = tone,
                     modifier = Modifier.size(18.dp),

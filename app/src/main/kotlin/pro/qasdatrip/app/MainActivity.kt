@@ -1,10 +1,17 @@
 package pro.qasdatrip.app
 
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.View
+import android.view.animation.DecelerateInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.animation.doOnEnd
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,10 +27,48 @@ import pro.qasdatrip.app.ui.QasdaNavHost
 import pro.qasdatrip.app.ui.theme.QasdaTheme
 import pro.qasdatrip.core.Lang
 
+/** How long the mark stays up on a start that is faster than the eye. */
+private const val SPLASH_MS = 850L
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before super, always: the platform reads the splash theme while the
+        // activity window is being made, and installing it afterwards is a
+        // frame too late.
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Hold it briefly.
+        //
+        // Left alone, the splash vanishes the instant the first frame is
+        // ready, which on a warm start is quick enough to look like a flicker
+        // - the mark appears and is gone before the eye lands on it, which
+        // reads as a glitch rather than as a launch. A short floor makes it a
+        // deliberate moment. It is a floor, not a delay: a cold start that
+        // takes longer than this is not slowed down by a single millisecond.
+        val started = SystemClock.uptimeMillis()
+        splash.setKeepOnScreenCondition {
+            SystemClock.uptimeMillis() - started < SPLASH_MS
+        }
+
+        // And leave gracefully. The default is a hard cut to the app; this
+        // lifts the mark slightly and fades it out over the home screen, so
+        // the two are one movement instead of two pictures.
+        splash.setOnExitAnimationListener { provider ->
+            val view = provider.view
+            ObjectAnimator.ofPropertyValuesHolder(
+                view,
+                PropertyValuesHolder.ofFloat(View.ALPHA, 1f, 0f),
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.06f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.06f),
+            ).apply {
+                duration = 260L
+                interpolator = DecelerateInterpolator()
+                doOnEnd { provider.remove() }
+            }.start()
+        }
+
         enableEdgeToEdge()
         val settings = Settings(this)
         setContent {
@@ -33,6 +78,8 @@ class MainActivity : ComponentActivity() {
             var chosen by remember { mutableStateOf(settings.language) }
             var recent by remember { mutableStateOf(settings.recent) }
             var manageKey by remember { mutableStateOf(settings.manageKey) }
+            var homeAirport by remember { mutableStateOf(settings.homeAirport) }
+            var alertsSeenAt by remember { mutableStateOf(settings.alertsSeenAt) }
             val lang = chosen ?: Lang.of(resources.configuration.locales[0].language)
 
             // True until the first reading arrives: a screen drawn before the
@@ -69,6 +116,17 @@ class MainActivity : ComponentActivity() {
                         // and nothing on screen re-draws when it changes.
                         readDevice = { settings.deviceKey },
                         onDeviceKey = { settings.deviceKey = it },
+                        homeAirport = homeAirport,
+                        onHomeAirport = { iata ->
+                            settings.homeAirport = iata
+                            homeAirport = iata
+                        },
+                        alertsSeenAt = alertsSeenAt,
+                        onAlertsSeen = {
+                            val now = System.currentTimeMillis()
+                            settings.alertsSeenAt = now
+                            alertsSeenAt = now
+                        },
                     )
                 }
             }
