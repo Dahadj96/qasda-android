@@ -5,4 +5,23 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <!--
+        The first thing the app shows.
+
+        It used to show nothing: the launcher handed straight over to a blank
+        window and then to the home screen, which on a cold start reads as a
+        stall rather than a launch. This is the platform splash - the same one
+        the system draws behind every modern app - so it appears in the same
+        frame as the tap, with no window of white in between.
+
+        The mark is the launcher's own drawing, so the icon somebody pressed
+        and the icon that greets them are the same picture.
+    -->
+    <style name="Theme.Qasda.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Qasda</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
 </resources>

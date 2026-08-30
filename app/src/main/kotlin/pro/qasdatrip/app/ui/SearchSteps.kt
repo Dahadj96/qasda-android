@@ -91,7 +91,10 @@ private fun StepHeader(
             modifier = Modifier.padding(start = Space.s4, end = Space.s4, bottom = Space.s3),
             verticalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
-            StepperBar(step = step)
+            // Step 0 means "this page is not part of the four". The picker
+            // is reused from Compte to set a home airport, and a progress bar
+            // there would promise three more questions that never come.
+            if (step > 0) StepperBar(step = step)
             subtitle?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
             }

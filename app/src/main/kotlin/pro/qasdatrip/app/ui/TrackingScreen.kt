@@ -74,26 +74,26 @@ fun TrackingScreen(
             verticalArrangement = Arrangement.spacedBy(Space.s3),
         ) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(words.myTracking, style = MaterialTheme.typography.displaySmall)
-                    Text(
-                        words.notificationsTitle,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Ink.accentDeep,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(Radius.pill))
-                            .clickable(onClick = onNotifications)
-                            .padding(horizontal = Space.s2, vertical = Space.s1),
+                Box {
+                    // "Suivi", the same word as the tab underneath it. The
+                    // screen called itself "Mon suivi" while the bar called
+                    // it "Suivi", which is two names for one place.
+                    QasdaAppBar(
+                        title = words.navTracking,
+                        large = true,
+                        actionLabel = words.notificationsTitle,
+                        onAction = onNotifications,
+                        modifier = Modifier.padding(horizontal = 0.dp),
                     )
                     // Registering counts as loading here: until the install
                     // has an identity there is nothing to list, and a bare
                     // empty state would read as "you have no alerts".
                     if (state.loading || state.registering) {
-                        CircularProgressIndicator(strokeWidth = 2.dp, color = Ink.accentDeep, modifier = Modifier.size(20.dp))
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            color = Ink.accentDeep,
+                            modifier = Modifier.size(20.dp).align(Alignment.CenterEnd),
+                        )
                     }
                 }
             }

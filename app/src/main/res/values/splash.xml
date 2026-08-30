@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- White, as asked, not the app's warm canvas: the splash is a held
+         breath before the product, and a tint here would read as a page. -->
+    <color name="splash_background">#FFFFFF</color>
+</resources>

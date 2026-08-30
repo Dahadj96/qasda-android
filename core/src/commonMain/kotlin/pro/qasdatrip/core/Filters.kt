@@ -43,6 +43,19 @@ data class Filters(
     val bagOnly: Boolean = false,
     val departBands: Set<TimeBand> = emptySet(),
     val maxPrice: Double? = null,
+    /**
+     * Carrier codes to keep. Empty means every carrier, which is not the same
+     * as "none": an empty set is the absence of the question, and a set that
+     * has been emptied by unticking the last box would otherwise show a blank
+     * screen and call it a filter.
+     */
+    val airlines: Set<String> = emptySet(),
+    /**
+     * Booking sites to keep, by the key the server uses. Same rule as above.
+     * This one filters on *who quoted*, so a flight survives when any kept
+     * site put a price on it — the card then shows that site's price.
+     */
+    val sites: Set<String> = emptySet(),
 ) {
     val active: Int
         get() = listOf(
@@ -50,10 +63,32 @@ data class Filters(
             bagOnly,
             departBands.isNotEmpty(),
             maxPrice != null,
+            airlines.isNotEmpty(),
+            sites.isNotEmpty(),
         ).count { it }
 
     val isEmpty: Boolean get() = active == 0
 }
+
+/**
+ * One carrier on this route, and the least it costs.
+ *
+ * The count is here because "Air Algérie · 6 offres" answers a different
+ * question from "dès 15 900" and people ask both.
+ */
+data class AirlineOption(
+    val code: String,
+    val name: String,
+    val from: Double?,
+    val offers: Int,
+)
+
+/** One booking site that quoted on this route. */
+data class SiteOption(
+    val key: String,
+    val name: String,
+    val offers: Int,
+)
 
 object FlightList {
 
@@ -78,8 +113,55 @@ object FlightList {
             // Unknown time: keep it. See the note at the top of this file.
             if (minutes != null && f.departBands.none { it.contains(minutes) }) return false
         }
+
+        if (f.airlines.isNotEmpty()) {
+            val code = carrier(flight)
+            // No carrier on the record is the missing-data case again, and it
+            // survives for the same reason a missing departure time does.
+            if (code != null && code !in f.airlines) return false
+        }
+
+        if (f.sites.isNotEmpty()) {
+            val quoting = flight.prices.entries
+                .filter { it.value != null && it.value!! > 0 }
+                .map { it.key }
+            if (quoting.isNotEmpty() && quoting.none { it in f.sites }) return false
+        }
         return true
     }
+
+    /** The carrier a flight is filed under, uppercased, or null when unstated. */
+    fun carrier(flight: Flight): String? =
+        (flight.outbound?.operatingAirline ?: flight.airline)
+            .takeIf { !it.isNullOrBlank() }
+            ?.uppercase()
+
+    /**
+     * The carriers on a route, cheapest first.
+     *
+     * Deliberately computed from the *unfiltered* list: a rail that reorders
+     * and drops entries as you tick them is a rail you cannot untick, and the
+     * airline you just excluded has to stay on screen to be let back in.
+     */
+    fun airlinesOn(flights: List<Flight>, nameOf: (String) -> String): List<AirlineOption> =
+        flights.groupBy { carrier(it) }
+            .mapNotNull { (code, group) ->
+                code ?: return@mapNotNull null
+                AirlineOption(
+                    code = code,
+                    name = nameOf(code),
+                    from = group.mapNotNull { it.cheapest?.second }.minOrNull(),
+                    offers = group.size,
+                )
+            }
+            .sortedWith(compareBy({ it.from ?: Double.MAX_VALUE }, { it.name }))
+
+    /** The sites that put a real price on anything in this list. */
+    fun sitesOn(flights: List<Flight>, nameOf: (String) -> String): List<SiteOption> =
+        flights.flatMap { f -> f.prices.entries.filter { it.value != null && it.value!! > 0 }.map { it.key } }
+            .groupingBy { it }.eachCount()
+            .map { (key, n) -> SiteOption(key, nameOf(key), n) }
+            .sortedWith(compareByDescending<SiteOption> { it.offers }.thenBy { it.name })
 
     private fun order(sort: SortBy): Comparator<Flight> = when (sort) {
         SortBy.PRICE -> Comparator { a, b -> unknownLast(a.cheapest?.second, b.cheapest?.second) }
