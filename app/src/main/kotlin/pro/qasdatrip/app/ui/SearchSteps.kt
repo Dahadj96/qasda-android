@@ -382,8 +382,11 @@ private fun RowLine() {
 
 /** "1 voyageur", "3 voyageurs" — never "1 voyageurs". */
 fun travellersLabel(draft: SearchDraft, words: Words): String =
-    if (draft.travellers == 1) words.travellerOne
-    else words.travellersMany.replace("{n}", Money.isolate(draft.travellers.toString()))
+    travellersLabel(draft.travellers, words)
+
+fun travellersLabel(count: Int, words: Words): String =
+    if (count == 1) words.travellerOne
+    else words.travellersMany.replace("{n}", Money.isolate(count.toString()))
 
 fun cabinLabel(cabin: Cabin, words: Words): String = when (cabin) {
     Cabin.ECONOMY -> words.economy

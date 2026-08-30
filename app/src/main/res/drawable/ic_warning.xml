@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A circled exclamation: "read this before you pay". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M3,12 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0"
+        android:strokeColor="#8F6412" android:strokeWidth="2"
+        android:fillColor="#00000000" />
+    <path android:pathData="M12,7.5 L12,13"
+        android:strokeColor="#8F6412" android:strokeWidth="2"
+        android:strokeLineCap="round" android:fillColor="#00000000" />
+    <path android:pathData="M12,16.3 L12,16.4"
+        android:strokeColor="#8F6412" android:strokeWidth="2.2"
+        android:strokeLineCap="round" android:fillColor="#00000000" />
+</vector>

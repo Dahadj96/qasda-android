@@ -16,6 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -69,6 +72,7 @@ private const val NOTIFICATIONS = "notifications"
 private const val FILTERS = "filters"
 private const val CHART = "chart"
 private const val PICK_HOME = "pick-home"
+private const val HANDOVER = "handover"
 
 /**
  * The hosts a manage link can arrive from. dev is here because that is where
@@ -76,6 +80,18 @@ private const val PICK_HOME = "pick-home"
  * the apex domain goes live and an old email is opened a month later.
  */
 private val ManageHosts = listOf("dev.qasdatrip.pro", "qasdatrip.pro", "www.qasdatrip.pro")
+
+/**
+ * Which alerts this phone is willing to be interrupted by.
+ *
+ * Three flags rather than three parameters because they travel together
+ * everywhere and are always changed one at a time from the same screen.
+ */
+data class AlertPrefs(
+    val drops: Boolean = true,
+    val seats: Boolean = true,
+    val ended: Boolean = true,
+)
 
 /** The destinations the bar can reach. Results and details are inside the search one. */
 private enum class Tab(val route: String, val label: (Words) -> String) {
@@ -122,6 +138,9 @@ fun QasdaNavHost(
     onHomeAirport: (String) -> Unit = {},
     alertsSeenAt: Long = 0L,
     onAlertsSeen: () -> Unit = {},
+    alertPrefs: AlertPrefs = AlertPrefs(),
+    onAlertPrefs: (AlertPrefs) -> Unit = {},
+    onClearRecent: () -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
@@ -161,14 +180,36 @@ fun QasdaNavHost(
     val trackState by tracking.state.collectAsStateWithLifecycle()
 
 
+    // Which offer, on which site, is being handed over. Held here rather
+    // than passed as route arguments because a Flight is not a string and
+    // serialising one into a URL to read it back two lines later is work
+    // that buys nothing.
+    var handover by remember { mutableStateOf<Pair<Flight, String>?>(null) }
+    var opening by remember { mutableStateOf(false) }
+
     // Choosing a site leaves the app: we do not sell tickets, and the booking
-    // and the payment happen on the site somebody chose.
-    val openBooking: (Flight, String?) -> Unit = { flight, chosen ->
+    // and the payment happen on the site somebody chose. That jump gets a
+    // page of its own — see HandoverScreen — because swapping the app for a
+    // stranger's checkout mid-tap is how people end up believing they bought
+    // the ticket from us.
+    val goToBooking: (Flight, String?) -> Unit = { flight, chosen ->
         val site = chosen ?: flight.cheapest?.first
         if (site != null) {
-            scope.launch {
-                vm.bookingUrl(flight, site)?.let { url -> openUrl(context, url) }
-            }
+            handover = flight to site
+            opening = false
+            nav.navigate(HANDOVER)
+        }
+    }
+
+    val openBooking: (Flight, String) -> Unit = { flight, site ->
+        opening = true
+        scope.launch {
+            val url = vm.bookingUrl(flight, site)
+            opening = false
+            // A URL we could not build is a site we cannot send anybody to.
+            // Staying put with the button live again is better than opening
+            // a browser on nothing.
+            if (url != null) openUrl(context, url)
         }
     }
 
@@ -396,7 +437,7 @@ fun QasdaNavHost(
                     // The card's own button books the cheapest, which is the
                     // price the card is showing. Choosing a different site is
                     // what the details screen is for.
-                    onBook = { openBooking(it, null) },
+                    onBook = { goToBooking(it, null) },
                     onRetry = { vm.retry() },
                     onEdit = {
                         state.query?.let { form.load(it, keepDates = true) }
@@ -473,6 +514,23 @@ fun QasdaNavHost(
                     startOnChart = true,
                 )
             }
+            // The page between the app and somebody else's checkout.
+            composable(HANDOVER) {
+                val chosen = handover
+                if (chosen == null) {
+                    // Restored onto this screen with nothing behind it.
+                    LaunchedEffect(Unit) { nav.popBackStack() }
+                } else {
+                    HandoverScreen(
+                        flight = chosen.first,
+                        site = chosen.second,
+                        query = state.query,
+                        opening = opening,
+                        onOpen = { openBooking(chosen.first, chosen.second) },
+                        onBack = { nav.popBackStack() },
+                    )
+                }
+            }
             composable(DETAILS) {
                 val flight = state.selected
                 if (flight == null) {
@@ -484,7 +542,7 @@ fun QasdaNavHost(
                 } else {
                     DetailsScreen(
                         flight = flight,
-                        onBook = { site -> openBooking(flight, site) },
+                        onBook = { site -> goToBooking(flight, site) },
                         onBack = { nav.popBackStack() },
                         onTrack = {
                             tracking.resetForm()
@@ -659,6 +717,16 @@ fun QasdaNavHost(
                     onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
                     onAbout = { nav.navigate(ABOUT) },
                     onBack = { nav.popBackStack() },
+                    alertDrops = alertPrefs.drops,
+                    alertSeats = alertPrefs.seats,
+                    alertEnded = alertPrefs.ended,
+                    onAlertDrops = { onAlertPrefs(alertPrefs.copy(drops = it)) },
+                    onAlertSeats = { onAlertPrefs(alertPrefs.copy(seats = it)) },
+                    onAlertEnded = { onAlertPrefs(alertPrefs.copy(ended = it)) },
+                    recentCount = recent.size,
+                    watchCount = trackState.watches.size,
+                    onClearRecent = onClearRecent,
+                    onStopAllWatches = { tracking.stopAll() },
                 )
             }
             composable(ABOUT) {

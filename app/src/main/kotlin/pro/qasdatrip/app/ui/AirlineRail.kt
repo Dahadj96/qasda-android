@@ -22,10 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pro.qasdatrip.app.ui.theme.Ink
-import pro.qasdatrip.app.ui.theme.LocalLang
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
@@ -92,26 +90,24 @@ fun AirlineRail(
 }
 
 /**
- * 108dp wide, and fixed.
+ * A logo and a number. That is the whole card.
  *
- * Cards that size to their own text make a rail whose columns jump as prices
- * arrive from slower sites, and a moving target is a hard thing to tap. The
- * name gets two lines and an ellipsis; "Turkish Airlines" is the one that
- * proves it needs them.
+ * It carried the airline's name as well, which made it 108dp wide and 126dp
+ * tall — two full lines of text for "Turkish Airlines" — and three of them
+ * ate the top third of the results before a single flight was visible. The
+ * name was never doing much work: the logo is the name, which is what a
+ * logo is for, and anybody who cannot place a mark can read it on the cards
+ * below.
+ *
+ * The price loses its "dès" for the same reason. A column of prices under a
+ * row of logos is unambiguous without a preposition in front of every one,
+ * and the section heading above already says what this row is.
  */
 @Composable
 private fun AirlineCard(option: AirlineOption, on: Boolean, onClick: () -> Unit) {
-    val lang = LocalLang.current
-    val words = LocalWords.current
     Column(
         modifier = Modifier
-            .width(108.dp)
-            // Fixed, not hugged. "Turkish Airlines" wraps to two lines and
-            // "Vueling" does not, and a rail of cards at two different
-            // heights with their prices on two different baselines is a row
-            // you cannot read across — which is the only thing this row is
-            // for. The name gets the slack; the price stays put.
-            .height(126.dp)
+            .width(72.dp)
             .clip(RoundedCornerShape(Radius.md))
             .background(if (on) Ink.accentSoft else Ink.surface)
             .border(
@@ -120,27 +116,18 @@ private fun AirlineCard(option: AirlineOption, on: Boolean, onClick: () -> Unit)
                 shape = RoundedCornerShape(Radius.md),
             )
             .clickable(onClick = onClick)
-            .padding(vertical = Space.s3, horizontal = 8.dp),
+            .padding(vertical = 10.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        AirlineLogo(code = option.code, size = 34.dp)
-        Text(
-            modifier = Modifier.weight(1f),
-            text = option.name,
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = Ink.ink,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        AirlineLogo(code = option.code, size = 30.dp)
         Text(
             // No price at all is possible: a carrier can be on the route with
-            // every site still thinking. Saying "dès —" would be worse than
-            // saying nothing, so the line simply goes quiet.
-            text = option.from?.let { words.fromPrice.replace("{price}", Money.format(it, lang)) }.orEmpty(),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (on) Ink.accentDeep else Ink.muted,
+            // every site still thinking. A dash is the shortest honest way to
+            // hold the space until one answers.
+            text = option.from?.let { Money.amount(it) } ?: "—",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = if (on) Ink.accentDeep else Ink.inkSoft,
             textAlign = TextAlign.Center,
             maxLines = 1,
         )

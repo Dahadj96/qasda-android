@@ -17,12 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -256,37 +253,15 @@ fun PriceHistoryScreen(
     val lang = LocalLang.current
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().background(Ink.surface).padding(Space.s4),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Space.s3),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp).clickable(onClick = onBack),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "${cityName(watch.origin, lang)} ${routeArrow(lang)} ${cityName(watch.destination, lang)}",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    formatDate(watch.departDate, lang),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Ink.muted,
-                )
-            }
-            Text(
-                words.stopTracking,
-                style = MaterialTheme.typography.labelLarge,
-                color = Ink.alert,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(Radius.pill))
-                    .clickable(onClick = onStop)
-                    .padding(horizontal = Space.s3, vertical = Space.s2),
-            )
-        }
+        // The shared bar. This screen drew its own bare arrow on a white
+        // strip, so the back control here was a different size and shape
+        // from the one on every other page.
+        QasdaAppBar(
+            title = words.priceHistoryTitle,
+            subtitle = "${cityName(watch.origin, lang)} ${routeArrow(lang)} " +
+                "${cityName(watch.destination, lang)} · ${formatDate(watch.departDate, lang)}",
+            onBack = onBack,
+        )
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -334,8 +309,25 @@ fun PriceHistoryScreen(
                     onClick = onSearch,
                     shape = RoundedCornerShape(Radius.pill),
                     colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(words.seeTodayOffers) }
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) { Text(words.seeTodayOffers, style = MaterialTheme.typography.titleMedium) }
+            }
+            // At the bottom, in red, away from the thumb's resting place.
+            // It used to sit in the top bar a finger's width from the back
+            // arrow, which is a bad place for the one control here that
+            // cannot be undone.
+            item {
+                Text(
+                    words.stopTracking,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Ink.alert,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(Radius.pill))
+                        .clickable(onClick = onStop)
+                        .padding(vertical = Space.s3),
+                )
             }
         }
     }

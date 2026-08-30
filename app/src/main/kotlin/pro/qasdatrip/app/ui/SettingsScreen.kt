@@ -18,11 +18,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
@@ -49,6 +52,16 @@ fun SettingsScreen(
     onOpen: (path: String) -> Unit,
     onAbout: () -> Unit = {},
     onBack: () -> Unit = {},
+    alertDrops: Boolean = true,
+    alertSeats: Boolean = true,
+    alertEnded: Boolean = true,
+    onAlertDrops: (Boolean) -> Unit = {},
+    onAlertSeats: (Boolean) -> Unit = {},
+    onAlertEnded: (Boolean) -> Unit = {},
+    recentCount: Int = 0,
+    watchCount: Int = 0,
+    onClearRecent: () -> Unit = {},
+    onStopAllWatches: () -> Unit = {},
 ) {
     val words = LocalWords.current
 
@@ -68,7 +81,32 @@ fun SettingsScreen(
             )
         }
 
-        item { Label(words.language) }
+        // Which alerts may interrupt you.
+        //
+        // These silence the message, never the watching: a route you asked
+        // us to follow stays followed while its notifications are off, and
+        // turning them back on shows you what happened in the meantime. A
+        // switch that quietly cancelled the watch would be the app throwing
+        // away work somebody asked for.
+        item { Label(words.notificationsTitle) }
+        item {
+            Group {
+                Toggle(words.prefDrops, words.prefDropsSub, alertDrops, onAlertDrops)
+                Divider()
+                Toggle(words.prefSeats, words.prefSeatsSub, alertSeats, onAlertSeats)
+                Divider()
+                Toggle(words.prefEnded, words.prefEndedSub, alertEnded, onAlertEnded)
+            }
+        }
+        item {
+            Text(
+                words.prefMutedNote,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Ink.muted,
+            )
+        }
+
+        item { Label(words.display) }
         item {
             Group {
                 // Null first, and named for what it does rather than for a
@@ -76,9 +114,49 @@ fun SettingsScreen(
                 // phone when the phone changes.
                 Choice(words.systemLanguage, current == null) { onLanguage(null) }
                 Divider()
-                Lang.entries.forEachIndexed { index, option ->
+                Lang.entries.forEach { option ->
                     Choice(nameOf(option), current == option) { onLanguage(option) }
-                    if (index < Lang.entries.size - 1) Divider()
+                    Divider()
+                }
+                // Stated, not offered: every site this app reads quotes in
+                // dinars, so a picker here would change nothing.
+                Stated(words.currency, words.currencyDzd)
+            }
+        }
+
+        // What this device is holding, and how to make it stop.
+        //
+        // Both of these are the only copy there is. Nothing here is on a
+        // server under an account, so this page is the only place somebody
+        // can undo what the app has remembered about them.
+        item { Label(words.dataSection) }
+        item {
+            Group {
+                Action(
+                    label = words.clearRecent,
+                    // "1 searches kept on this device" is the sort of thing
+                    // that makes an app look machine-written.
+                    subtitle = when (recentCount) {
+                        0 -> words.nothingToClear
+                        1 -> words.clearRecentOneSub
+                        else -> words.clearRecentSub.replace("{n}", Money.isolate(recentCount.toString()))
+                    },
+                    enabled = recentCount > 0,
+                    onClick = onClearRecent,
+                )
+                if (watchCount > 0) {
+                    Divider()
+                    Action(
+                        label = words.stopAllWatches,
+                        subtitle = if (watchCount == 1) {
+                            words.stopAllWatchesOneSub
+                        } else {
+                            words.stopAllWatchesSub.replace("{n}", Money.isolate(watchCount.toString()))
+                        },
+                        enabled = true,
+                        destructive = true,
+                        onClick = onStopAllWatches,
+                    )
                 }
             }
         }
@@ -204,5 +282,99 @@ private fun Link(label: String, onClick: () -> Unit) {
             tint = Ink.muted,
             modifier = Modifier.size(20.dp),
         )
+    }
+}
+
+/** A row that turns something on or off. */
+@Composable
+private fun Toggle(
+    label: String,
+    subtitle: String,
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onChange(!on) }
+            .padding(horizontal = Space.s4, vertical = Space.s3),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s3),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = Ink.ink)
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
+        }
+        Switch(
+            checked = on,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Ink.accentUi,
+                checkedBorderColor = Ink.accentUi,
+                uncheckedThumbColor = Ink.surface,
+                uncheckedTrackColor = Ink.surfaceSoft,
+                uncheckedBorderColor = Ink.lineStrong,
+            ),
+        )
+    }
+}
+
+/** A row that says something and does nothing. No chevron: it does not lead anywhere. */
+@Composable
+private fun Stated(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4, vertical = Space.s3),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s3),
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = Ink.ink, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.labelLarge, color = Ink.inkSoft, maxLines = 1)
+    }
+}
+
+/**
+ * A row that does something irreversible.
+ *
+ * Red for the destructive one, and greyed rather than hidden when there is
+ * nothing to act on — a control that disappears when the list empties makes
+ * people wonder where it went.
+ */
+@Composable
+private fun Action(
+    label: String,
+    subtitle: String,
+    enabled: Boolean,
+    destructive: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = Space.s4, vertical = Space.s3),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.s3),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = when {
+                    !enabled -> Ink.muted
+                    destructive -> Ink.alert
+                    else -> Ink.ink
+                },
+            )
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
+        }
+        if (enabled) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Ink.muted,
+                modifier = Modifier.size(20.dp),
+            )
+        }
     }
 }
