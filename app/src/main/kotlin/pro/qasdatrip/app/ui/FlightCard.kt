@@ -40,6 +40,9 @@ import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
 import pro.qasdatrip.core.Airlines
+import pro.qasdatrip.core.Baggage
+import pro.qasdatrip.core.baggage
+import pro.qasdatrip.core.hasCabinBag
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.Leg
 import pro.qasdatrip.core.Money
@@ -407,22 +410,89 @@ private fun CardTags(flight: Flight, soldOut: Boolean) {
                     else Triple(it, Ink.inkSoft, Ink.surfaceSoft),
                 )
             }
-            if (flight.hasLuggage) add(Triple(words.bagIncluded, Ink.inkSoft, Ink.surfaceSoft))
-            else add(Triple(words.bagNone, Ink.alert, Ink.alertSoft))
-
             Seats.left(flight.seatsAvailable)?.let { n ->
                 add(Triple(seatsLabel(n, words), Ink.notice, Ink.noticeSoft))
             }
         }
     }
-    if (tags.isEmpty()) return
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        tags.forEach { (text, fg, bg) -> Tag(text, fg = fg, bg = bg) }
+        // Stops first, then the bag, then what is running out — the order the
+        // drawing puts them in.
+        tags.firstOrNull()?.let { (text, fg, bg) -> Tag(text, fg = fg, bg = bg) }
+        if (!soldOut) BaggageTag(flight)
+        tags.drop(1).forEach { (text, fg, bg) -> Tag(text, fg = fg, bg = bg) }
     }
 }
+
+/**
+ * The bag, drawn rather than described.
+ *
+ * "Bagage inclus" was doing real harm. To anybody packing for a week those
+ * two words mean the hold, and the app was printing them for fares that
+ * include nothing but the case in the overhead locker — so somebody books,
+ * reaches the airport, and finds the thing they thought they had paid for
+ * costs another eight thousand dinars. The word only ever described whether
+ * *some* allowance existed, which is not a question anybody asks.
+ *
+ * So the tag says which bag, and shows it. Two cases side by side when the
+ * hold is included and a cabin bag was reported with it; the small case
+ * alone, in amber, when the cabin bag is all there is; a struck-through case
+ * in red when there is neither. A fare nobody reported an allowance for
+ * gets no tag at all — silence, because "no bag" and "nobody said" are
+ * different answers and only one of them is ours to give.
+ */
+@Composable
+private fun BaggageTag(flight: Flight) {
+    val words = LocalWords.current
+    val (label, fg, bg, icons) = when (flight.baggage()) {
+        Baggage.CHECKED -> Quad(
+            words.bagChecked, Ink.inkSoft, Ink.surfaceSoft,
+            if (flight.hasCabinBag()) {
+                listOf(R.drawable.ic_bag_cabin, R.drawable.ic_bag_checked)
+            } else {
+                listOf(R.drawable.ic_bag_checked)
+            },
+        )
+        Baggage.CABIN_ONLY -> Quad(
+            words.bagCabinOnly, Ink.notice, Ink.noticeSoft, listOf(R.drawable.ic_bag_cabin),
+        )
+        Baggage.NONE -> Quad(
+            words.bagNoneAtAll, Ink.alert, Ink.alertSoft, listOf(R.drawable.ic_bag_none),
+        )
+        Baggage.UNKNOWN -> return
+    }
+
+    Row(
+        modifier = Modifier
+            .height(24.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bg)
+            .padding(horizontal = Space.s2),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        icons.forEach {
+            Icon(
+                painter = painterResource(it),
+                contentDescription = null,
+                tint = fg,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+        Text(label, style = MetaType, color = fg, maxLines = 1)
+    }
+}
+
+/** Four things travelling together, for one `when`. */
+private data class Quad(
+    val label: String,
+    val fg: Color,
+    val bg: Color,
+    val icons: List<Int>,
+)
 
 /** How many sites quoted, and the way in. */
 @Composable
