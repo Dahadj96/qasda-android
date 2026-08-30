@@ -295,6 +295,17 @@ interface Words {
     val seeOffers: String
     /** Shown beside the notifications switch when the phone has them off. */
     val notificationsOff: String
+    /** A checked bag is included — the ordinary case. */
+    val bagChecked: String
+    /** Cabin only: the fare that looks complete and is not. */
+    val bagCabinOnly: String
+    /** Neither. */
+    val bagNoneAtAll: String
+    val baggageHeading: String
+    val cabinBagLabel: String
+    val checkedBagLabel: String
+    /** "1 pièce" — never "1 pièce(s)". */
+    val pieceOne: String
     val noSeats: String
     val notifyMe: String
 
@@ -309,6 +320,13 @@ interface Words {
 
 /** French: the language the product is designed in. */
 private object FrWords : Words {
+    override val pieceOne = "1 pièce"
+    override val bagChecked = "Bagage en soute"
+    override val bagCabinOnly = "Cabine seulement"
+    override val bagNoneAtAll = "Aucun bagage"
+    override val baggageHeading = "Bagages"
+    override val cabinBagLabel = "Bagage cabine"
+    override val checkedBagLabel = "Bagage en soute"
     override val notificationsOff = "Coupées sur ce téléphone. Touchez pour les réactiver."
     override val statusActive = "Actif"
     override val seeOffers = "Voir les offres"
@@ -354,7 +372,7 @@ private object FrWords : Words {
     override val cabinBag = "Bagage cabine"
     override val checkedBag = "Bagage en soute"
     override val bagUnknown = "Non communiqué"
-    override val pieces = "{n} pièce(s)"
+    override val pieces = "{n} pièces"
     override val kilos = "{n} kg"
     override val conditions = "Conditions du billet"
     override val refundable = "Remboursable"
@@ -576,6 +594,13 @@ private object FrWords : Words {
 
 /** Arabic: right to left, and the reason every layout is mirrored rather than hand-written twice. */
 private object ArWords : Words {
+    override val pieceOne = "قطعة واحدة"
+    override val bagChecked = "أمتعة مسجلة"
+    override val bagCabinOnly = "حقيبة يد فقط"
+    override val bagNoneAtAll = "بدون أمتعة"
+    override val baggageHeading = "الأمتعة"
+    override val cabinBagLabel = "حقيبة يد"
+    override val checkedBagLabel = "أمتعة مسجلة"
     override val notificationsOff = "موقوفة على هذا الهاتف. اضغط لإعادة تفعيلها."
     override val statusActive = "نشط"
     override val seeOffers = "عرض العروض"
@@ -843,6 +868,13 @@ private object ArWords : Words {
 
 /** English. */
 private object EnWords : Words {
+    override val pieceOne = "1 piece"
+    override val bagChecked = "Checked bag"
+    override val bagCabinOnly = "Cabin only"
+    override val bagNoneAtAll = "No bag"
+    override val baggageHeading = "Baggage"
+    override val cabinBagLabel = "Cabin bag"
+    override val checkedBagLabel = "Checked bag"
     override val notificationsOff = "Turned off on this phone. Tap to switch them back on."
     override val statusActive = "Active"
     override val seeOffers = "See offers"
@@ -888,7 +920,7 @@ private object EnWords : Words {
     override val cabinBag = "Cabin bag"
     override val checkedBag = "Checked bag"
     override val bagUnknown = "Not stated"
-    override val pieces = "{n} piece(s)"
+    override val pieces = "{n} pieces"
     override val kilos = "{n} kg"
     override val conditions = "Ticket conditions"
     override val refundable = "Refundable"
@@ -1380,6 +1412,13 @@ fun Words.everyString(): List<Pair<String, String>> = listOf(
     "statusActive" to statusActive,
     "seeOffers" to seeOffers,
     "notificationsOff" to notificationsOff,
+    "bagChecked" to bagChecked,
+    "bagCabinOnly" to bagCabinOnly,
+    "bagNoneAtAll" to bagNoneAtAll,
+    "baggageHeading" to baggageHeading,
+    "cabinBagLabel" to cabinBagLabel,
+    "checkedBagLabel" to checkedBagLabel,
+    "pieceOne" to pieceOne,
     "noSeats" to noSeats,
     "notifyMe" to notifyMe,
 )

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.outlined.Notifications
@@ -43,6 +44,8 @@ import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
 import pro.qasdatrip.core.Airlines
+import pro.qasdatrip.core.Baggage
+import pro.qasdatrip.core.baggage
 import pro.qasdatrip.core.Airports
 import pro.qasdatrip.core.BagAllowance
 import pro.qasdatrip.core.Flight
@@ -115,6 +118,24 @@ fun DetailsScreen(
             flight.outbound?.let { leg -> item { LegCard(leg, if (flight.inbound != null) words.outbound else null) } }
             flight.inbound?.let { leg -> item { LegCard(leg, words.inbound) } }
 
+            // Baggage before prices, not after.
+            //
+            // It was the last card on the page, under four site prices, and
+            // that is the wrong order for the decision being made: what the
+            // fare carries changes which price is actually the cheapest. A
+            // fare eight thousand dinars lighter with no hold bag is not
+            // cheaper than one with a bag, and somebody who reads the prices
+            // first has already made up their mind by the time the page tells
+            // them so.
+            item {
+                Text(
+                    words.baggageHeading.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Ink.muted,
+                )
+            }
+            item { BaggageCard(flight) }
+
             if (quotes.isNotEmpty()) {
                 item {
                     Text(
@@ -129,6 +150,15 @@ fun DetailsScreen(
                     // One card, hairlines between the rows. Separate cards
                     // per site read as four offers; this is four prices for
                     // one seat, and the shape should say so.
+                    //
+                    // Every row is a way out, not just the top one. The page
+                    // used to list four sites and let you leave through
+                    // exactly one of them — the cheapest — which makes the
+                    // other three decoration. People have reasons for
+                    // preferring a site that has nothing to do with price:
+                    // a card that works there, a refund that arrived once, a
+                    // number they can ring. Comparing prices and then
+                    // choosing for them is not comparing.
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -143,13 +173,12 @@ fun DetailsScreen(
                                 amount = amount,
                                 seats = flight.seats[site],
                                 best = index == 0,
+                                onClick = { onBook(site) },
                             )
                         }
                     }
                 }
             }
-
-            item { BaggageCard(flight) }
 
             flight.fareRules?.let { rules ->
                 item { ConditionsCard(rules.refundable, rules.changeable, rules.refundFee, rules.changeFee) }
@@ -550,13 +579,20 @@ private fun Endpoint(
  * anything on it is.
  */
 @Composable
-private fun SiteRow(site: String, amount: Double, seats: Int?, best: Boolean) {
+private fun SiteRow(
+    site: String,
+    amount: Double,
+    seats: Int?,
+    best: Boolean,
+    onClick: () -> Unit,
+) {
     val words = LocalWords.current
     val lang = LocalLang.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(if (best) Ink.accentSoft else Ink.surface)
+            .clickable(onClick = onClick)
             .padding(horizontal = Space.s4, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
         verticalAlignment = Alignment.CenterVertically,
@@ -591,6 +627,13 @@ private fun SiteRow(site: String, amount: Double, seats: Int?, best: Boolean) {
             Money.format(amount, lang),
             style = MaterialTheme.typography.titleLarge,
             color = if (best) Ink.accentDeep else Ink.ink,
+        )
+        // A chevron per row, because every row goes somewhere now.
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = if (best) Ink.accentDeep else Ink.muted,
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -668,18 +711,42 @@ private fun BaggageCard(flight: Flight) {
     val words = LocalWords.current
     val leg = flight.outbound ?: flight.inbound
     Card {
-        BagLine(words.cabinBag, leg?.cabinBags, words)
-        BagLine(words.checkedBag, leg?.checkedBags, words)
+        BagLine(R.drawable.ic_bag_cabin, words.cabinBagLabel, leg?.cabinBags, words)
+        BagLine(R.drawable.ic_bag_checked, words.checkedBagLabel, leg?.checkedBags, words)
     }
 }
 
 @Composable
-private fun BagLine(label: String, bag: BagAllowance?, words: Words) {
+private fun BagLine(
+    @androidx.annotation.DrawableRes icon: Int,
+    label: String,
+    bag: BagAllowance?,
+    words: Words,
+) {
+    // Nobody said, so nothing is claimed — but the row still shows which bag
+    // it is talking about, because "cabine" and "soute" are two words a
+    // hurried reader can swap.
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = Space.s1),
         horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = Ink.inkSoft)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(if (bag != null && bag.value <= 0) R.drawable.ic_bag_none else icon),
+                contentDescription = null,
+                tint = when {
+                    bag == null -> Ink.muted
+                    bag.value <= 0 -> Ink.alert
+                    else -> Ink.inkSoft
+                },
+                modifier = Modifier.size(20.dp),
+            )
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = Ink.inkSoft)
+        }
         Text(
             bagText(bag, words),
             style = MaterialTheme.typography.titleMedium,
@@ -696,10 +763,13 @@ private fun bagText(bag: BagAllowance?, words: Words): String {
     if (bag.value <= 0) return words.bagNone
     val n = Money.isolate(bag.value.toString())
     // PIECE and KG are different promises; the unit travels with the number.
-    return if (bag.unit.equals("KG", ignoreCase = true)) {
-        words.kilos.replace("{n}", n)
-    } else {
-        words.pieces.replace("{n}", n)
+    return when {
+        bag.unit.equals("KG", ignoreCase = true) -> words.kilos.replace("{n}", n)
+        // "1 piece(s)" is the sort of thing that makes an app look
+        // machine-written, and this line is read by somebody deciding
+        // whether their suitcase is coming with them.
+        bag.value == 1 -> words.pieceOne
+        else -> words.pieces.replace("{n}", n)
     }
 }
 
@@ -797,12 +867,16 @@ private fun stopsText(stops: Int?, words: Words): String? = when (stops) {
 private fun SummaryTags(flight: Flight) {
     val words = LocalWords.current
     val tags = buildList {
-        if (flight.hasLuggage) add(Triple(words.bagIncluded, Ink.accentDeep, Ink.accentSoft))
-        // A fare with no checked bag is not the same fare at a lower price,
-        // and every list in this app sorts on price. Leaving this out would
-        // let the cheapest offer on screen be cheapest only because
-        // something had been taken out of it.
-        else add(Triple(words.bagNone, Ink.alert, Ink.alertSoft))
+        // The same answer the results card gives, in the same words. A fare
+        // that was "Cabine seulement" in the list must not become "Bagage
+        // inclus" one tap later — that is the exact confusion this whole
+        // change exists to remove.
+        when (flight.baggage()) {
+            Baggage.CHECKED -> add(Triple(words.bagChecked, Ink.inkSoft, Ink.surfaceSoft))
+            Baggage.CABIN_ONLY -> add(Triple(words.bagCabinOnly, Ink.notice, Ink.noticeSoft))
+            Baggage.NONE -> add(Triple(words.bagNoneAtAll, Ink.alert, Ink.alertSoft))
+            Baggage.UNKNOWN -> Unit
+        }
 
         Seats.left(flight.seatsAvailable)?.let { n ->
             add(Triple(seatsLabel(n, words), Ink.notice, Ink.noticeSoft))

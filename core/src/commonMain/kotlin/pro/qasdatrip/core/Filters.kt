@@ -96,7 +96,11 @@ object FlightList {
         flights.filter { keep(it, filters) }.sortedWith(order(sort))
 
     private fun keep(flight: Flight, f: Filters): Boolean {
-        if (f.bagOnly && !flight.hasLuggage) return false
+        // "Hide fares without a bag" means without a bag in the hold. It used
+        // to read the raw `hasLuggage` flag, which is true for a fare whose
+        // only allowance is the case in the overhead locker — so the filter
+        // kept exactly the fares it was asked to remove.
+        if (f.bagOnly && flight.baggage() != Baggage.CHECKED) return false
 
         val price = flight.cheapest?.second
         if (f.maxPrice != null && price != null && price > f.maxPrice) return false
