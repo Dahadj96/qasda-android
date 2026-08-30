@@ -287,6 +287,16 @@ interface Words {
     val priceHistoryTitle: String
     val clearRecentOneSub: String
     val stopAllWatchesOneSub: String
+    val soldOut: String
+    /** "Le moins cher sur {n} sites" — the best card's footer line. */
+    val cheapestOnSites: String     // {n}
+    /** The tag on a tracking card: this watch is running. */
+    val statusActive: String
+    val seeOffers: String
+    /** Shown beside the notifications switch when the phone has them off. */
+    val notificationsOff: String
+    val noSeats: String
+    val notifyMe: String
 
     companion object {
         fun of(lang: Lang): Words = when (lang) {
@@ -299,6 +309,13 @@ interface Words {
 
 /** French: the language the product is designed in. */
 private object FrWords : Words {
+    override val notificationsOff = "Coupées sur ce téléphone. Touchez pour les réactiver."
+    override val statusActive = "Actif"
+    override val seeOffers = "Voir les offres"
+    override val cheapestOnSites = "Le moins cher sur {n} sites"
+    override val soldOut = "Complet"
+    override val noSeats = "0 place"
+    override val notifyMe = "Me prévenir"
     override val heroTitle = "Tous les sites. Une recherche."
     override val heroSub = "Qasda interroge les sites de réservation algériens en même temps."
     override val from = "Départ"
@@ -559,6 +576,13 @@ private object FrWords : Words {
 
 /** Arabic: right to left, and the reason every layout is mirrored rather than hand-written twice. */
 private object ArWords : Words {
+    override val notificationsOff = "موقوفة على هذا الهاتف. اضغط لإعادة تفعيلها."
+    override val statusActive = "نشط"
+    override val seeOffers = "عرض العروض"
+    override val cheapestOnSites = "الأرخص على {n} مواقع"
+    override val soldOut = "مكتملة"
+    override val noSeats = "لا مقاعد"
+    override val notifyMe = "أعلمني"
     override val heroTitle = "كل المواقع. بحث واحد."
     override val heroSub = "يبحث قصدة في مواقع الحجز الجزائرية في الوقت نفسه."
     override val from = "المغادرة"
@@ -819,6 +843,13 @@ private object ArWords : Words {
 
 /** English. */
 private object EnWords : Words {
+    override val notificationsOff = "Turned off on this phone. Tap to switch them back on."
+    override val statusActive = "Active"
+    override val seeOffers = "See offers"
+    override val cheapestOnSites = "Cheapest on {n} sites"
+    override val soldOut = "Sold out"
+    override val noSeats = "0 seats"
+    override val notifyMe = "Notify me"
     override val heroTitle = "Every site. One search."
     override val heroSub = "Qasda queries the Algerian booking sites at the same time."
     override val from = "From"
@@ -1344,4 +1375,11 @@ fun Words.everyString(): List<Pair<String, String>> = listOf(
     "priceHistoryTitle" to priceHistoryTitle,
     "clearRecentOneSub" to clearRecentOneSub,
     "stopAllWatchesOneSub" to stopAllWatchesOneSub,
+    "soldOut" to soldOut,
+    "cheapestOnSites" to cheapestOnSites,
+    "statusActive" to statusActive,
+    "seeOffers" to seeOffers,
+    "notificationsOff" to notificationsOff,
+    "noSeats" to noSeats,
+    "notifyMe" to notifyMe,
 )

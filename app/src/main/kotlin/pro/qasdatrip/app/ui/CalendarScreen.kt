@@ -582,20 +582,20 @@ private fun PriceChart(
             ) {
                 Text(
                     Money.amount(price),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    style = MetaType,
                     color = colour,
                     maxLines = 1,
                 )
                 Box(
                     modifier = Modifier
-                        .width(30.dp)
+                        .width(28.dp)
                         .height((CHART_HEIGHT * fraction).dp)
                         .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                         .background(colour),
                 )
                 Text(
                     formatDate(day.departDate, lang),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MetaType,
                     color = if (day.departDate == chosen) Ink.ink else Ink.muted,
                     textAlign = TextAlign.Center,
                     maxLines = 2,

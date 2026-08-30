@@ -23,6 +23,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,17 +163,63 @@ fun TrackScreen(
             }
 
             item {
+                // The switch the design draws, wired to the only thing it
+                // could honestly control.
+                //
+                // It cannot mean "track without telling me", because that is
+                // a watch that does nothing. What it can mean is whether this
+                // app is allowed to reach you at all, which is the phone's
+                // setting and the actual reason a tracked route can go quiet.
+                // So it reads that, and tapping it opens the page where it is
+                // changed rather than pretending to change it here.
+                val context = LocalContext.current
+                val lifecycle = LocalLifecycleOwner.current
+                var allowed by remember { mutableStateOf(notificationsAllowed(context)) }
+
+                // Re-read on the way back from the settings page, which is
+                // the only place it can have changed.
+                DisposableEffect(lifecycle) {
+                    val watcher = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) allowed = notificationsAllowed(context)
+                    }
+                    lifecycle.lifecycle.addObserver(watcher)
+                    onDispose { lifecycle.lifecycle.removeObserver(watcher) }
+                }
+
                 Card {
-                    Text(
-                        words.trackNotifications,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Ink.ink,
-                    )
-                    Text(
-                        words.trackNotificationsBody,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Ink.muted,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Space.s3),
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                words.trackNotifications,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Ink.ink,
+                            )
+                            Text(
+                                if (allowed) words.trackNotificationsBody else words.notificationsOff,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (allowed) Ink.muted else Ink.alert,
+                            )
+                        }
+                        Switch(
+                            checked = allowed,
+                            onCheckedChange = { openNotificationSettings(context) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Ink.accentUi,
+                                checkedBorderColor = Ink.accentUi,
+                                uncheckedThumbColor = Ink.surface,
+                                uncheckedTrackColor = Ink.surfaceSoft,
+                                uncheckedBorderColor = Ink.lineStrong,
+                            ),
+                        )
+                    }
                 }
             }
 
@@ -331,3 +388,16 @@ private fun Rule(
 private fun travellersOf(q: SearchQuery, words: pro.qasdatrip.core.Words): String =
     if (q.travellers == 1) words.travellerOne
     else words.travellersMany.replace("{n}", Money.isolate(q.travellers.toString()))
+
+
+/** Whether this phone will show anything we send it. */
+private fun notificationsAllowed(context: android.content.Context): Boolean =
+    androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+/** The system page where that is turned back on. */
+private fun openNotificationSettings(context: android.content.Context) {
+    val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+}

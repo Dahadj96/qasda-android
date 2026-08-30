@@ -232,7 +232,7 @@ private fun AlertRow(alert: Alert, unread: Boolean, onClick: () -> Unit) {
             // seen three days ago is not a price, and the row has to say so
             // before somebody acts on it.
             relativeTime(alert.at, words)?.let {
-                Text(it, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
+                Text(it, style = MetaType, color = Ink.muted)
             }
         }
         if (unread) {
