@@ -196,6 +196,28 @@ class TrackingViewModel(
     }
 
     /**
+     * Stop every watch on this device.
+     *
+     * One call per watch rather than a bulk endpoint, because there is no
+     * bulk endpoint and inventing one for a button pressed once in a
+     * lifetime is not worth a migration. Each is dropped locally as the
+     * server confirms it, so a list that half-succeeds on a bad connection
+     * shows exactly what actually stopped.
+     */
+    fun stopAll() {
+        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
+        val ids = _state.value.watches.map { it.id }
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            for (id in ids) {
+                if (api.cancelWatch(key, id)) {
+                    _state.update { s -> s.copy(watches = s.watches.filterNot { it.id == id }) }
+                }
+            }
+        }
+    }
+
+    /**
      * What we have already told this device.
      *
      * Re-read every time the screen opens, like the watch list: a phone that

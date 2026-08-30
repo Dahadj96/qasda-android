@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pro.qasdatrip.app.data.Settings
 import pro.qasdatrip.app.data.onlineFlow
+import pro.qasdatrip.app.ui.AlertPrefs
 import pro.qasdatrip.app.ui.LocalOnline
 import pro.qasdatrip.app.ui.QasdaNavHost
 import pro.qasdatrip.app.ui.theme.QasdaTheme
@@ -80,6 +81,11 @@ class MainActivity : ComponentActivity() {
             var manageKey by remember { mutableStateOf(settings.manageKey) }
             var homeAirport by remember { mutableStateOf(settings.homeAirport) }
             var alertsSeenAt by remember { mutableStateOf(settings.alertsSeenAt) }
+            var alertPrefs by remember {
+                mutableStateOf(
+                    AlertPrefs(settings.alertDrops, settings.alertSeats, settings.alertEnded),
+                )
+            }
             val lang = chosen ?: Lang.of(resources.configuration.locales[0].language)
 
             // True until the first reading arrives: a screen drawn before the
@@ -120,6 +126,17 @@ class MainActivity : ComponentActivity() {
                         onHomeAirport = { iata ->
                             settings.homeAirport = iata
                             homeAirport = iata
+                        },
+                        alertPrefs = alertPrefs,
+                        onAlertPrefs = { next ->
+                            settings.alertDrops = next.drops
+                            settings.alertSeats = next.seats
+                            settings.alertEnded = next.ended
+                            alertPrefs = next
+                        },
+                        onClearRecent = {
+                            settings.recent = emptyList()
+                            recent = emptyList()
                         },
                         alertsSeenAt = alertsSeenAt,
                         onAlertsSeen = {

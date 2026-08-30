@@ -67,6 +67,27 @@ class Settings(context: Context) {
         set(value) { prefs.edit().putLong(KEY_ALERTS_SEEN, value).apply() }
 
     /**
+     * Which kinds of alert this phone is willing to be interrupted by.
+     *
+     * Local, and enforced locally: the app decides whether an arriving push
+     * becomes a notification. Sending these to the server would make the
+     * watch itself conditional, and somebody who mutes seat alerts for a
+     * week still wants the watch to be there when they turn them back on.
+     * Muting silences the message, never the watching.
+     */
+    var alertDrops: Boolean
+        get() = prefs.getBoolean(KEY_ALERT_DROPS, true)
+        set(value) { prefs.edit().putBoolean(KEY_ALERT_DROPS, value).apply() }
+
+    var alertSeats: Boolean
+        get() = prefs.getBoolean(KEY_ALERT_SEATS, true)
+        set(value) { prefs.edit().putBoolean(KEY_ALERT_SEATS, value).apply() }
+
+    var alertEnded: Boolean
+        get() = prefs.getBoolean(KEY_ALERT_ENDED, true)
+        set(value) { prefs.edit().putBoolean(KEY_ALERT_ENDED, value).apply() }
+
+    /**
      * The last few searches, newest first.
      *
      * The question is kept, never the answer: a price from last week is not a
@@ -172,6 +193,9 @@ class Settings(context: Context) {
         const val KEY_RECENT = "recent_searches"
         const val KEY_HOME_AIRPORT = "home_airport"
         const val KEY_ALERTS_SEEN = "alerts_seen_at"
+        const val KEY_ALERT_DROPS = "alert_drops"
+        const val KEY_ALERT_SEATS = "alert_seats"
+        const val KEY_ALERT_ENDED = "alert_ended"
         const val KEY_WATCHER = "alert_watcher_id"
         const val KEY_DEVICE_ID = "device_id"
         const val KEY_DEVICE_WATCHER = "device_watcher_id"

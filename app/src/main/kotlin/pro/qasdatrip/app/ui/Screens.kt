@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -143,10 +144,11 @@ fun ResultsScreen(
 
         when {
             state.failed != null -> Message(
-                title = if (state.failed == SearchEvent.Reason.CONNECTION) words.failedTitle else words.failedTitle,
+                title = words.failedTitle,
                 body = words.failedSub,
                 actionLabel = words.retry,
                 onAction = onRetry,
+                icon = R.drawable.ic_plane_off,
             )
 
             // Nothing on this date is the moment the calendar is worth most:
@@ -652,20 +654,47 @@ private fun EmptyWithNearby(
 }
 
 @Composable
-private fun Message(title: String, body: String, actionLabel: String?, onAction: () -> Unit) {
+private fun Message(
+    title: String,
+    body: String,
+    actionLabel: String?,
+    onAction: () -> Unit,
+    @androidx.annotation.DrawableRes icon: Int? = null,
+) {
     Box(modifier = Modifier.fillMaxSize().padding(Space.s6), contentAlignment = Alignment.Center) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(Space.s3),
         ) {
+            // A tinted disc above the words, as drawn. A wall of centred text
+            // on an otherwise empty screen reads as an error the app has not
+            // finished writing; a mark at the top of it reads as a state the
+            // app meant to show.
+            icon?.let {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(Ink.alertSoft),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(it),
+                        contentDescription = null,
+                        tint = Ink.alert,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+            }
             Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
             Text(body, style = MaterialTheme.typography.bodyMedium, color = Ink.muted, textAlign = TextAlign.Center)
             if (actionLabel != null) {
                 Button(
                     onClick = onAction,
-                    shape = RoundedCornerShape(Radius.sm),
+                    modifier = Modifier.height(48.dp),
+                    shape = RoundedCornerShape(Radius.pill),
                     colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
-                ) { Text(actionLabel) }
+                ) { Text(actionLabel, style = MaterialTheme.typography.titleMedium) }
             }
         }
     }

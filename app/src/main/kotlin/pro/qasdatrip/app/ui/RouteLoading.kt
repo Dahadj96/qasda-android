@@ -86,11 +86,20 @@ fun RouteLoading(
                 .height(28.dp),
         ) {
             val span = maxWidth - PlaneSize
-            // In Arabic the route reads right to left, so the aircraft has to
-            // fly that way too. Mirroring the whole row would mirror the
-            // aircraft into flying backwards; moving it the other way and
-            // flipping the glyph keeps both facts right.
-            val travelled = if (rtl) 1f - progress else progress
+            // Nothing here compensates for Arabic, and that is the fix.
+            //
+            // This animation ran backwards in RTL because it corrected for a
+            // mirroring Compose had already done. `Alignment.CenterStart` is
+            // the right-hand edge in an RTL layout and `Modifier.offset(x=)`
+            // moves in the reading direction, so the aircraft already leaves
+            // the origin and flies toward the destination on its own. The
+            // old `1f - progress` then reversed that, and the plane took off
+            // from the destination and flew home.
+            //
+            // The one thing Compose does not mirror is the artwork: the
+            // drawable is not marked autoMirrored, so the glyph still points
+            // right while the travel goes left. That is what the scaleX below
+            // is for, and it is the only RTL special case this file needs.
 
             Box(
                 modifier = Modifier
@@ -102,7 +111,9 @@ fun RouteLoading(
             )
             Box(
                 modifier = Modifier
-                    .align(if (rtl) Alignment.CenterEnd else Alignment.CenterStart)
+                    // CenterStart, in both directions: it is the origin end
+                    // of the rail, and in Arabic that is already the right.
+                    .align(Alignment.CenterStart)
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .height(2.dp)
                     .clip(RoundedCornerShape(1.dp))
@@ -128,7 +139,7 @@ fun RouteLoading(
                 tint = Ink.accentDeep,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .offset(x = span * travelled)
+                    .offset(x = span * progress.coerceIn(0f, 1f))
                     .size(PlaneSize)
                     .graphicsLayer { scaleX = if (rtl) -1f else 1f },
             )
