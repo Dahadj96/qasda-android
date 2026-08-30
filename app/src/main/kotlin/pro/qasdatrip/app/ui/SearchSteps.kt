@@ -67,7 +67,7 @@ fun StepperBar(step: Int, total: Int = 4, modifier: Modifier = Modifier) {
                     .weight(1f)
                     .height(4.dp)
                     .clip(RoundedCornerShape(Radius.pill))
-                    .background(if (index < step) Ink.ink else Ink.line),
+                    .background(if (index < step) Ink.solid else Ink.line),
             )
         }
     }
@@ -334,8 +334,8 @@ fun ReviewScreen(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(Radius.pill),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.ink,
-                    contentColor = Ink.inverse,
+                    containerColor = Ink.solid,
+                    contentColor = Ink.onSolid,
                     disabledContainerColor = Ink.surfaceSoft,
                     disabledContentColor = Ink.muted,
                 ),

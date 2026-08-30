@@ -201,8 +201,8 @@ fun DatesScreen(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(Radius.pill),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.ink,
-                    contentColor = Ink.inverse,
+                    containerColor = Ink.solid,
+                    contentColor = Ink.onSolid,
                     disabledContainerColor = Ink.surfaceSoft,
                     disabledContentColor = Ink.muted,
                 ),
@@ -321,6 +321,7 @@ private fun DayCell(
     modifier: Modifier = Modifier,
     onPick: (LocalDate) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val isEnd = day == depart || (roundTrip && day == back)
     val between = roundTrip && depart != null && back != null && day.isAfter(depart) && day.isBefore(back)
     val selectable = inMonth && !past
@@ -332,19 +333,24 @@ private fun DayCell(
             .clip(RoundedCornerShape(Radius.sm))
             .background(
                 when {
-                    isEnd -> Ink.ink
+                    isEnd -> Ink.solid
                     between -> Ink.accentSoft
                     else -> androidx.compose.ui.graphics.Color.Transparent
                 },
             )
-            .then(if (selectable) Modifier.clickable { onPick(day) } else Modifier),
+            .then(
+                if (selectable) Modifier.clickable {
+                    haptics.play(Feedback.Selection)
+                    onPick(day)
+                } else Modifier,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = Money.isolate(day.dayOfMonth.toString()),
             style = MaterialTheme.typography.bodyLarge,
             color = when {
-                isEnd -> Ink.inverse
+                isEnd -> Ink.onSolid
                 !inMonth -> Ink.line
                 past -> Ink.line
                 between -> Ink.accentDeep

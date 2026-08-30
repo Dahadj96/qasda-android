@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -66,12 +69,16 @@ fun AccountScreen(
     val words = LocalWords.current
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Ink.canvas),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.canvas)
+            .windowInsetsPadding(WindowInsets.statusBars),
         contentPadding = PaddingValues(start = Space.s4, end = Space.s4, bottom = Space.s6),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
         item {
             QasdaAppBar(
+                    inset = false,
                 title = words.navAccount,
                 large = true,
                 modifier = Modifier.padding(horizontal = 0.dp),

@@ -267,6 +267,10 @@ interface Words {
     val prefEndedSub: String
     val prefMutedNote: String
     val display: String
+    val theme: String
+    val themeSystem: String
+    val themeLight: String
+    val themeDark: String
     val dataSection: String
     val clearRecent: String
     val clearRecentSub: String     // {n}
@@ -570,6 +574,10 @@ private object FrWords : Words {
     override val prefEndedSub = "Quand la date d\u2019un suivi est passée"
     override val prefMutedNote = "Si vous coupez tout, les suivis continuent mais rien ne vous parvient."
     override val display = "Affichage"
+    override val theme = "Thème"
+    override val themeSystem = "Comme le téléphone"
+    override val themeLight = "Clair"
+    override val themeDark = "Sombre"
     override val dataSection = "Données"
     override val clearRecent = "Effacer les recherches récentes"
     override val clearRecentSub = "{n} recherches enregistrées sur cet appareil"
@@ -844,6 +852,10 @@ private object ArWords : Words {
     override val prefEndedSub = "عندما يمر تاريخ المتابعة"
     override val prefMutedNote = "إذا أوقفت كل شيء، تستمر المتابعة لكن لن يصلك أي إشعار."
     override val display = "العرض"
+    override val theme = "المظهر"
+    override val themeSystem = "حسب الهاتف"
+    override val themeLight = "فاتح"
+    override val themeDark = "داكن"
     override val dataSection = "البيانات"
     override val clearRecent = "مسح عمليات البحث الأخيرة"
     override val clearRecentSub = "{n} عمليات بحث محفوظة على هذا الجهاز"
@@ -1118,6 +1130,10 @@ private object EnWords : Words {
     override val prefEndedSub = "When a tracked date has passed"
     override val prefMutedNote = "Turn everything off and the routes stay tracked, but nothing reaches you."
     override val display = "Display"
+    override val theme = "Theme"
+    override val themeSystem = "Match phone"
+    override val themeLight = "Light"
+    override val themeDark = "Dark"
     override val dataSection = "Data"
     override val clearRecent = "Clear recent searches"
     override val clearRecentSub = "{n} searches kept on this device"
@@ -1387,6 +1403,10 @@ fun Words.everyString(): List<Pair<String, String>> = listOf(
     "prefEndedSub" to prefEndedSub,
     "prefMutedNote" to prefMutedNote,
     "display" to display,
+    "theme" to theme,
+    "themeSystem" to themeSystem,
+    "themeLight" to themeLight,
+    "themeDark" to themeDark,
     "dataSection" to dataSection,
     "clearRecent" to clearRecent,
     "clearRecentSub" to clearRecentSub,

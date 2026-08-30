@@ -645,8 +645,8 @@ private fun EmptyWithNearby(
                 onClick = onCalendar,
                 shape = RoundedCornerShape(Radius.sm),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.ink,
-                    contentColor = Ink.inverse,
+                    containerColor = Ink.solid,
+                    contentColor = Ink.onSolid,
                 ),
             ) { Text(words.priceCalendar) }
         }
@@ -693,7 +693,7 @@ private fun Message(
                     onClick = onAction,
                     modifier = Modifier.height(48.dp),
                     shape = RoundedCornerShape(Radius.pill),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
+                    colors = ButtonDefaults.buttonColors(containerColor = Ink.solid, contentColor = Ink.onSolid),
                 ) { Text(actionLabel, style = MaterialTheme.typography.titleMedium) }
             }
         }

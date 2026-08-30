@@ -197,7 +197,7 @@ fun DetailsScreen(
                     onClick = { onBook(site) },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(Radius.pill),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
+                    colors = ButtonDefaults.buttonColors(containerColor = Ink.solid, contentColor = Ink.onSolid),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -218,7 +218,7 @@ fun DetailsScreen(
                         Icon(
                             painter = painterResource(R.drawable.ic_external),
                             contentDescription = null,
-                            tint = Ink.inverse,
+                            tint = Ink.onSolid,
                             modifier = Modifier.size(16.dp),
                         )
                     }

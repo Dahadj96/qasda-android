@@ -124,7 +124,7 @@ fun RouteLoading(
                     .align(Alignment.CenterStart)
                     .size(8.dp)
                     .clip(CircleShape)
-                    .background(Ink.ink),
+                    .background(Ink.solid),
             )
             Box(
                 modifier = Modifier

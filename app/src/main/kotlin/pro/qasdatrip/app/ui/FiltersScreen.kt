@@ -258,8 +258,8 @@ fun FiltersScreen(
                 enabled = matches > 0,
                 shape = RoundedCornerShape(Radius.pill),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.ink,
-                    contentColor = Ink.inverse,
+                    containerColor = Ink.solid,
+                    contentColor = Ink.onSolid,
                     disabledContainerColor = Ink.surfaceSoft,
                     disabledContentColor = Ink.muted,
                 ),
@@ -317,16 +317,17 @@ private fun Choice(
     @androidx.annotation.DrawableRes icon: Int? = null,
     onToggle: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(Radius.pill))
-            .background(if (on) Ink.ink else Ink.surface)
+            .background(if (on) Ink.solid else Ink.surface)
             .border(
                 1.dp,
-                if (on) Ink.ink else Ink.lineStrong,
+                if (on) Ink.solid else Ink.lineStrong,
                 RoundedCornerShape(Radius.pill),
             )
-            .clickable(onClick = onToggle)
+            .clickable { haptics.play(if (on) Feedback.ToggleOff else Feedback.ToggleOn); onToggle() }
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -335,14 +336,14 @@ private fun Choice(
             Icon(
                 painter = painterResource(it),
                 contentDescription = null,
-                tint = if (on) Ink.inverse else Ink.ink,
+                tint = if (on) Ink.onSolid else Ink.ink,
                 modifier = Modifier.size(16.dp),
             )
         }
         Text(
             label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = if (on) Ink.inverse else Ink.ink,
+            color = if (on) Ink.onSolid else Ink.ink,
             maxLines = 1,
         )
     }

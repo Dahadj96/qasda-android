@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -51,11 +54,25 @@ fun QasdaAppBar(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     large: Boolean = false,
+    /**
+     * False where the bar scrolls with the list it sits in.
+     *
+     * A bar inside a LazyColumn cannot hold the status bar inset for the
+     * screen: it scrolls away, and takes the protection with it, leaving the
+     * rows underneath to slide under the clock. On those screens the list
+     * itself is padded and the bar must not pad again.
+     */
+    inset: Boolean = true,
 ) {
     val words = LocalWords.current
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // The status bar inset lives here rather than on the Scaffold, so
+            // that the one screen without a bar - home, whose photograph runs
+            // to the top of the glass - can put its own content under the
+            // clock instead of being pushed below it.
+            .then(if (inset) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
             .padding(horizontal = Space.s4, vertical = Space.s3),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.s3),

@@ -192,8 +192,8 @@ fun HandoverScreen(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(Radius.pill),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.ink,
-                    contentColor = Ink.inverse,
+                    containerColor = Ink.solid,
+                    contentColor = Ink.onSolid,
                     disabledContainerColor = Ink.surfaceSoft,
                     disabledContentColor = Ink.muted,
                 ),
@@ -211,7 +211,7 @@ fun HandoverScreen(
                     Icon(
                         painter = painterResource(R.drawable.ic_external),
                         contentDescription = null,
-                        tint = if (opening) Ink.muted else Ink.inverse,
+                        tint = if (opening) Ink.muted else Ink.onSolid,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -270,10 +270,10 @@ private fun Badge(text: String, dark: Boolean, modifier: Modifier = Modifier) {
         modifier = modifier
             .height(72.dp)
             .clip(RoundedCornerShape(Radius.md))
-            .background(if (dark) Ink.ink else Ink.surface)
+            .background(if (dark) Ink.solid else Ink.surface)
             .border(
                 1.dp,
-                if (dark) Ink.ink else Ink.lineStrong,
+                if (dark) Ink.solid else Ink.lineStrong,
                 RoundedCornerShape(Radius.md),
             )
             .padding(horizontal = Space.s2),
@@ -282,7 +282,7 @@ private fun Badge(text: String, dark: Boolean, modifier: Modifier = Modifier) {
         Text(
             text,
             style = MaterialTheme.typography.titleMedium,
-            color = if (dark) Ink.inverse else Ink.ink,
+            color = if (dark) Ink.onSolid else Ink.ink,
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

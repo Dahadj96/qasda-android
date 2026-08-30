@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -31,6 +34,7 @@ import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
 import pro.qasdatrip.app.ui.theme.Space
+import pro.qasdatrip.app.ui.theme.ThemeMode
 import pro.qasdatrip.core.Lang
 import pro.qasdatrip.core.Money
 
@@ -62,11 +66,16 @@ fun SettingsScreen(
     watchCount: Int = 0,
     onClearRecent: () -> Unit = {},
     onStopAllWatches: () -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeMode: (ThemeMode) -> Unit = {},
 ) {
     val words = LocalWords.current
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Ink.canvas),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.canvas)
+            .windowInsetsPadding(WindowInsets.statusBars),
         contentPadding = PaddingValues(Space.s4),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
@@ -74,6 +83,7 @@ fun SettingsScreen(
         // into and it owes you a way out.
         item {
             QasdaAppBar(
+                    inset = false,
                 title = words.navSettings,
                 large = true,
                 onBack = onBack,
@@ -121,6 +131,24 @@ fun SettingsScreen(
                 // Stated, not offered: every site this app reads quotes in
                 // dinars, so a picker here would change nothing.
                 Stated(words.currency, words.currencyDzd)
+            }
+        }
+
+        // Light or dark.
+        //
+        // Following the phone is the default and the first row, for the same
+        // reason the language does: somebody who has never opened this screen
+        // should keep tracking their phone when they change it at dusk. The
+        // two explicit choices exist because a phone-wide setting is a blunt
+        // instrument, and people read flight prices in bed.
+        item { Label(words.theme) }
+        item {
+            Group {
+                Choice(words.themeSystem, themeMode == ThemeMode.SYSTEM) { onThemeMode(ThemeMode.SYSTEM) }
+                Divider()
+                Choice(words.themeLight, themeMode == ThemeMode.LIGHT) { onThemeMode(ThemeMode.LIGHT) }
+                Divider()
+                Choice(words.themeDark, themeMode == ThemeMode.DARK) { onThemeMode(ThemeMode.DARK) }
             }
         }
 

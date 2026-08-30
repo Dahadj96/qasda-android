@@ -55,6 +55,17 @@ class Settings(context: Context) {
         }
 
     /**
+     * Light, dark, or whatever the phone is doing.
+     *
+     * Stored as a tag rather than an ordinal so reordering the enum cannot
+     * silently move somebody from dark to light. "system" is the default and
+     * is also what an unreadable value falls back to.
+     */
+    var themeMode: String
+        get() = prefs.getString(KEY_THEME, null) ?: "system"
+        set(value) { prefs.edit().putString(KEY_THEME, value).apply() }
+
+    /**
      * When this phone last looked at its notifications, as epoch millis.
      *
      * Local, and staying local. The server is never told what has been read:
@@ -190,6 +201,7 @@ class Settings(context: Context) {
 
     private companion object {
         const val KEY_LANG = "lang"
+        const val KEY_THEME = "theme_mode"
         const val KEY_RECENT = "recent_searches"
         const val KEY_HOME_AIRPORT = "home_airport"
         const val KEY_ALERTS_SEEN = "alerts_seen_at"

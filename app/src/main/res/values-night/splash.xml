@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The dark launch.
+
+        The splash is drawn by the system before a single line of the app has
+        run, from this XML and nothing else - so it cannot ask the Compose
+        theme what colour it should be. Without this file a phone in dark mode
+        gets a full-screen flash of white for the better part of a second,
+        which is the most jarring thing the app could possibly do to somebody
+        checking prices in bed.
+    -->
+    <color name="splash_background">#101312</color>
+    <color name="splash_mark">#ECEFEC</color>
+    <color name="splash_dot">#2BD3B0</color>
+</resources>

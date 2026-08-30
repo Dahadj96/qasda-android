@@ -1,6 +1,7 @@
 package pro.qasdatrip.app.ui
 
 import android.content.Intent
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
@@ -44,6 +45,7 @@ import pro.qasdatrip.app.BuildConfig
 import pro.qasdatrip.app.R
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
+import pro.qasdatrip.app.ui.theme.ThemeMode
 import pro.qasdatrip.core.Flight
 import pro.qasdatrip.core.Lang
 import pro.qasdatrip.core.DeviceKey
@@ -141,17 +143,47 @@ fun QasdaNavHost(
     alertPrefs: AlertPrefs = AlertPrefs(),
     onAlertPrefs: (AlertPrefs) -> Unit = {},
     onClearRecent: () -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeMode: (ThemeMode) -> Unit = {},
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val words = LocalWords.current
 
+    val haptics = LocalHaptics.current
+
     val vm: SearchViewModel = viewModel(factory = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T = SearchViewModel(api) as T
     })
     val state by vm.state.collectAsStateWithLifecycle()
+
+    // What the search turned into, felt once.
+    //
+    // Keyed on the running -> settled edge rather than on the state itself,
+    // which matters: a screen composed with results already in hand - coming
+    // back from a flight's detail page, or a rotation - is not a search
+    // finishing, and would otherwise buzz for something that happened
+    // minutes ago. The commit is felt on the button, on the screen that owns
+    // it; this is the answer arriving, and it lands later.
+    //
+    // "No flights" is a warning rather than an error on purpose: it is a true
+    // answer to the question asked, and buzzing as though the app broke would
+    // be a lie about somebody's trip.
+    var wasRunning by remember { mutableStateOf(false) }
+    LaunchedEffect(state.running) {
+        if (wasRunning && !state.running) {
+            haptics.play(
+                when {
+                    state.failed != null -> Feedback.Error
+                    state.empty -> Feedback.Warning
+                    else -> Feedback.Success
+                },
+            )
+        }
+        wasRunning = state.running
+    }
 
     // The half-finished question, owned above the five pages that fill it in
     // so walking between them cannot lose it.
@@ -250,8 +282,16 @@ fun QasdaNavHost(
 
     Scaffold(
         containerColor = Ink.canvas,
+        // Zero, deliberately. Every screen but home wears QasdaAppBar, which
+        // takes the status bar inset itself; home draws its photograph under
+        // the clock. The bottom inset still arrives through `padding` below,
+        // via the navigation bar.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (onTopLevel) {
+                // Lifted out of the draw scope below: `Ink` is a composable
+                // read, and `drawBehind` runs outside composition.
+                val hairline = Ink.line
                 NavigationBar(
                     containerColor = Ink.surface,
                     tonalElevation = 0.dp,
@@ -261,7 +301,7 @@ fun QasdaNavHost(
                     modifier = Modifier
                         .drawBehind {
                             drawRect(
-                                color = Ink.line,
+                                color = hairline,
                                 size = androidx.compose.ui.geometry.Size(size.width, 1.dp.toPx()),
                             )
                         },
@@ -285,7 +325,12 @@ fun QasdaNavHost(
                                 // the search", which is exactly what somebody
                                 // reaches for when they want to change route
                                 // rather than date.
+                                // Only on a real change. Re-tapping the tab
+                                // you are standing on scrolls to the top, and
+                                // a tick for that would be feedback for
+                                // nothing happening.
                                 if (!selected || route != tab.route) {
+                                    haptics.play(Feedback.Selection)
                                     nav.navigate(tab.route) {
                                         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
                                         launchSingleTop = true
@@ -322,7 +367,7 @@ fun QasdaNavHost(
         NavHost(
             navController = nav,
             startDestination = SEARCH,
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
             // Set once, here, so every page gets the same motion and no
             // screen can quietly ship with the framework default.
             enterTransition = Motion.enter,
@@ -727,6 +772,8 @@ fun QasdaNavHost(
                     watchCount = trackState.watches.size,
                     onClearRecent = onClearRecent,
                     onStopAllWatches = { tracking.stopAll() },
+                    themeMode = themeMode,
+                    onThemeMode = onThemeMode,
                 )
             }
             composable(ABOUT) {

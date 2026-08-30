@@ -254,15 +254,15 @@ fun TrackScreen(
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(Radius.pill),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.ink,
-                    contentColor = Ink.inverse,
+                    containerColor = Ink.solid,
+                    contentColor = Ink.onSolid,
                     disabledContainerColor = Ink.surfaceSoft,
                     disabledContentColor = Ink.muted,
                 ),
             ) {
                 if (sending) {
                     CircularProgressIndicator(
-                        color = Ink.inverse,
+                        color = Ink.onSolid,
                         strokeWidth = 2.dp,
                         modifier = Modifier.size(20.dp),
                     )
@@ -315,7 +315,7 @@ private fun Confirmation(onDone: () -> Unit) {
             onClick = onDone,
             modifier = Modifier.fillMaxWidth().height(52.dp).padding(top = Space.s3),
             shape = RoundedCornerShape(Radius.pill),
-            colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
+            colors = ButtonDefaults.buttonColors(containerColor = Ink.solid, contentColor = Ink.onSolid),
         ) { Text(words.myTracking, style = MaterialTheme.typography.titleMedium) }
     }
 }

@@ -7,6 +7,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -18,57 +20,164 @@ import androidx.compose.ui.unit.sp
 import pro.qasdatrip.app.R
 
 /**
- * The same tokens as public/style.css, by the same names. The site and the app
- * are one product; a colour that exists in one and not the other is a bug.
+ * The same tokens as public/style.css and the Figma `Color` collection, by the
+ * same names. The site, the file and the app are one product; a colour that
+ * exists in one and not the others is a bug.
+ *
+ * A class rather than an object because there are now two of them. Every call
+ * site still reads `Ink.muted`, because [Ink] below resolves to whichever
+ * palette the surrounding theme provides - which is the whole trick that let
+ * dark mode land without touching six hundred call sites.
  */
-object Ink {
-    val canvas = Color(0xFFFAF9F6)
-    val surface = Color(0xFFFFFFFF)
-    val surfaceSoft = Color(0xFFF2F3EF)
-    val ink = Color(0xFF232522)
-    val inkSoft = Color(0xFF505650)
-    val muted = Color(0xFF6D746E)
-    val inverse = Color(0xFFFFFFFF)
-    val line = Color(0xFFDEDFD9)
+@Immutable
+data class Palette(
+    val canvas: Color,
+    val surface: Color,
+    val surfaceSoft: Color,
+    val ink: Color,
+    val inkSoft: Color,
+    val muted: Color,
+    /**
+     * A filled control: the search button, a chosen date, an active chip.
+     *
+     * Separate from [ink] because the two only agree in light mode. On paper
+     * the strongest thing on the screen is near-black, and so is the body
+     * text. In the dark they part company: text goes pale and a filled button
+     * goes to the accent, because a pale button would be a slab of white on a
+     * dark screen.
+     */
+    val solid: Color,
+    /** What is legible on [solid]. */
+    val onSolid: Color,
+    val line: Color,
     /**
      * The hairline between the two times on a flight card.
      *
-     * Darker than `line`, which is for borders: this one has to read as a
-     * route across white with an aircraft sitting on it, and at `line` it
-     * disappeared into the card. Needs adding to public/style.css so the site
-     * and the app keep agreeing.
+     * Darker than [line], which is for borders: this one has to read as a
+     * route with an aircraft sitting on it, and at [line] it disappeared into
+     * the card.
      */
-    val rail = Color(0xFF868D85)
-    val lineStrong = Color(0xFFC8CBC4)
-    val accent = Color(0xFF11B99A)
-    val accentUi = Color(0xFF0D9880)
-    val accentDeep = Color(0xFF08745F)
-    val accentSoft = Color(0xFFE5F7F2)
-    val alert = Color(0xFFA8443D)
-    val alertSoft = Color(0xFFFAEEEB)
-    val notice = Color(0xFF8F6412)
-    val noticeSoft = Color(0xFFFBF1DE)
-}
-
-private val LightColors = lightColorScheme(
-    primary = Ink.ink,
-    onPrimary = Ink.inverse,
-    secondary = Ink.accentDeep,
-    onSecondary = Ink.inverse,
-    background = Ink.canvas,
-    onBackground = Ink.ink,
-    surface = Ink.surface,
-    onSurface = Ink.ink,
-    surfaceVariant = Ink.surfaceSoft,
-    onSurfaceVariant = Ink.inkSoft,
-    outline = Ink.line,
-    error = Ink.alert,
+    val rail: Color,
+    val lineStrong: Color,
+    val accent: Color,
+    val accentUi: Color,
+    val accentDeep: Color,
+    val accentSoft: Color,
+    val alert: Color,
+    val alertSoft: Color,
+    val notice: Color,
+    val noticeSoft: Color,
 )
 
-// Dark comes later, deliberately: the brand is a paper-and-ink palette and a
-// naive inversion of it looks like a different product. Until it is designed,
-// the app stays light so nothing is unreadable.
-private val DarkColors = LightColors
+val LightPalette = Palette(
+    canvas = Color(0xFFFAF9F6),
+    surface = Color(0xFFFFFFFF),
+    surfaceSoft = Color(0xFFF2F3EF),
+    ink = Color(0xFF232522),
+    inkSoft = Color(0xFF505650),
+    muted = Color(0xFF6D746E),
+    solid = Color(0xFF232522),
+    onSolid = Color(0xFFFFFFFF),
+    line = Color(0xFFDEDFD9),
+    rail = Color(0xFF868D85),
+    lineStrong = Color(0xFFC8CBC4),
+    accent = Color(0xFF11B99A),
+    accentUi = Color(0xFF0D9880),
+    accentDeep = Color(0xFF08745F),
+    accentSoft = Color(0xFFE5F7F2),
+    alert = Color(0xFFA8443D),
+    alertSoft = Color(0xFFFAEEEB),
+    notice = Color(0xFF8F6412),
+    noticeSoft = Color(0xFFFBF1DE),
+)
+
+/**
+ * The dark palette, as drawn on the Figma page "Android · Dark".
+ *
+ * Not an inversion. The greens are lifted and desaturated so the accent still
+ * reads as the brand at low luminance, the paper white becomes a near-black
+ * with the same slight green cast the paper had, and the two warning colours
+ * are pulled towards their tints rather than their full-strength versions,
+ * which glow on a dark ground.
+ */
+val DarkPalette = Palette(
+    canvas = Color(0xFF101312),
+    surface = Color(0xFF191D1B),
+    surfaceSoft = Color(0xFF232826),
+    ink = Color(0xFFECEFEC),
+    inkSoft = Color(0xFFB9C0BB),
+    muted = Color(0xFFA7AFA8),
+    solid = Color(0xFF2BD3B0),
+    onSolid = Color(0xFF0B1F1A),
+    line = Color(0xFF2C322F),
+    rail = Color(0xFF6E766F),
+    lineStrong = Color(0xFF3A423E),
+    accent = Color(0xFF2BD3B0),
+    accentUi = Color(0xFF2BD3B0),
+    accentDeep = Color(0xFF7DE9CE),
+    accentSoft = Color(0xFF12312B),
+    alert = Color(0xFFF08A81),
+    alertSoft = Color(0xFF3A211F),
+    notice = Color(0xFFE8B65C),
+    noticeSoft = Color(0xFF332818),
+)
+
+val LocalPalette = staticCompositionLocalOf { LightPalette }
+
+/** True when the app is painting itself dark, whatever the reason. */
+val LocalDark = staticCompositionLocalOf { false }
+
+/**
+ * The palette in force here.
+ *
+ * A composable property, so `Ink.muted` keeps working everywhere it already
+ * appears while now answering differently in the dark. The one place it
+ * cannot be read is a non-composable lambda - a `drawBehind`, a `Canvas`
+ * draw scope - where the colour has to be lifted into a local first.
+ */
+val Ink: Palette
+    @Composable @ReadOnlyComposable get() = LocalPalette.current
+
+/** What somebody chose in Réglages. */
+enum class ThemeMode { SYSTEM, LIGHT, DARK;
+    val tag: String get() = name.lowercase()
+    companion object {
+        fun of(tag: String?): ThemeMode =
+            entries.firstOrNull { it.tag == tag } ?: SYSTEM
+    }
+}
+
+private fun schemeFor(p: Palette, dark: Boolean) = if (dark) {
+    darkColorScheme(
+        primary = p.solid,
+        onPrimary = p.onSolid,
+        secondary = p.accentDeep,
+        onSecondary = p.onSolid,
+        background = p.canvas,
+        onBackground = p.ink,
+        surface = p.surface,
+        onSurface = p.ink,
+        surfaceVariant = p.surfaceSoft,
+        onSurfaceVariant = p.inkSoft,
+        outline = p.line,
+        error = p.alert,
+    )
+} else {
+    lightColorScheme(
+        primary = p.solid,
+        onPrimary = p.onSolid,
+        secondary = p.accentDeep,
+        onSecondary = p.onSolid,
+        background = p.canvas,
+        onBackground = p.ink,
+        surface = p.surface,
+        onSurface = p.ink,
+        surfaceVariant = p.surfaceSoft,
+        onSurfaceVariant = p.inkSoft,
+        outline = p.line,
+        error = p.alert,
+    )
+}
 
 // Named objects, not `val Radius = object { ... }`: the type of an anonymous
 // object only survives on a private or local declaration. On a public top-level
@@ -175,14 +284,23 @@ val LocalLang = staticCompositionLocalOf { pro.qasdatrip.core.Lang.FR }
 @Composable
 fun QasdaTheme(
     lang: pro.qasdatrip.core.Lang,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit,
 ) {
+    val dark = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    val palette = if (dark) DarkPalette else LightPalette
     CompositionLocalProvider(
         LocalLang provides lang,
         LocalWords provides pro.qasdatrip.core.Words.of(lang),
+        LocalPalette provides palette,
+        LocalDark provides dark,
     ) {
         MaterialTheme(
-            colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+            colorScheme = schemeFor(palette, dark),
             typography = if (lang == pro.qasdatrip.core.Lang.AR) ArabicType else LatinType,
             content = content,
         )
