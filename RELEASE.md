@@ -228,3 +228,28 @@ server:
 Until `assetlinks.json` is served (see section 3), Android hands these links
 to the browser rather than the app, and the tracking screen's "paste the
 link" fallback is how somebody gets in.
+## Never ship a build you have not launched
+
+A green build is not a working app. On 30 August a staging APK compiled,
+minified, passed every unit test, and then died on every launch with:
+
+    java.lang.VerifyError: Verifier rejected class ...
+    Rejecting invocation, expected 1 argument registers,
+    method signature has 2 or more
+
+`Words` had grown to 257 constructor parameters. Dalvik addresses method
+arguments as registers and `invoke-direct/range` reaches at most 255 of
+them, so the call to that constructor could not be expressed and the class
+verifier rejected it before the first frame. Nothing in the toolchain could
+see it: javac and Kotlin have no such limit, R8 was happy, and the unit
+tests run on a JVM, which is also happy. Only a dex loader disagrees.
+
+`Words` is an interface with one object per language now, which has no
+ceiling — but the class of bug does not go away, and the guard is cheap:
+
+    powershell -File qasda-crash.ps1
+
+It uninstalls, installs the current staging APK, clears the log, launches
+the app, waits, and prints the crash buffer. An empty `==== CRASH ====`
+section is the pass. Run it before sending an APK to anybody, every time,
+including for a one-line change — this one was two strings.
