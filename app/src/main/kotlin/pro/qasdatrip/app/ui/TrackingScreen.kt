@@ -24,6 +24,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import pro.qasdatrip.app.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -166,6 +173,8 @@ private fun Panel(content: @Composable () -> Unit) {
 private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
     val words = LocalWords.current
     val lang = LocalLang.current
+    val seats = watch.watchingSeats
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -174,18 +183,41 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
             .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
             .clickable(onClick = onOpen)
             .padding(Space.s4),
-        verticalArrangement = Arrangement.spacedBy(Space.s1),
+        verticalArrangement = Arrangement.spacedBy(Space.s3),
     ) {
-        Text(
-            "${cityName(watch.origin, lang)} ${routeArrow(lang)} ${cityName(watch.destination, lang)}",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            listOfNotNull(watch.departDate, watch.returnDate)
-                .joinToString(" – ") { formatDate(it, lang) },
-            style = MaterialTheme.typography.bodyMedium,
-            color = Ink.muted,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "${cityName(watch.origin, lang)} ${routeArrow(lang)} ${cityName(watch.destination, lang)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    listOfNotNull(watch.departDate, watch.returnDate)
+                        .joinToString(" – ") { formatDate(it, lang) },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Ink.muted,
+                    maxLines = 1,
+                )
+            }
+            // What kind of watch this is, said in one word. A list of four
+            // routes all reading "Alger → Paris" needs something at a glance
+            // that separates the one waiting for a seat from the three
+            // waiting for a price.
+            if (seats) {
+                Tag(words.soldOut, fg = Ink.notice, bg = Ink.noticeSoft)
+            } else {
+                Tag(words.statusActive, fg = Ink.accentDeep, bg = Ink.accentSoft)
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Ink.line))
+
         // The rule, in the sentence somebody would use to describe it — not
         // two numbers labelled "baseline" and "target" that mean nothing
         // without the code that reads them.
@@ -193,53 +225,95 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
         // No number here is a price we are quoting now. It is what this watch
         // is measured against, and re-running the search is the only thing
         // that can say what the route costs today.
-        Text(
-            text = when {
-                watch.watchingSeats -> words.watchingSeat
-                watch.reference != null ->
-                    words.watchingPrice.replace("{price}", Money.format(watch.reference!!, lang))
-                else -> words.noTrackingSub
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (watch.watchingSeats) Ink.notice else Ink.accentDeep,
-            modifier = Modifier.padding(top = Space.s1),
-        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
+            verticalAlignment = Alignment.Top,
+        ) {
+            if (seats) {
+                Icon(
+                    imageVector = Icons.Outlined.Notifications,
+                    contentDescription = null,
+                    tint = Ink.notice,
+                    modifier = Modifier.size(18.dp),
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_trending_down),
+                    contentDescription = null,
+                    tint = Ink.accentDeep,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Text(
+                text = when {
+                    seats -> words.watchingSeat
+                    watch.reference != null ->
+                        words.watchingPrice.replace("{price}", Money.format(watch.reference!!, lang))
+                    else -> words.noTrackingSub
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = Ink.inkSoft,
+            )
+        }
+
         watch.seenPrice?.let {
             Text(
                 words.seenAtSearch.replace("{price}", Money.format(it, lang)),
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = Ink.muted,
             )
         }
+
+        // Two controls, side by side and equal, as drawn. Stopping used to be
+        // the only one — a red word alone at the bottom right — which made
+        // the card's obvious action the destructive one.
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = Space.s2),
-            horizontalArrangement = Arrangement.End,
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
-            Text(
-                words.stopTracking,
-                style = MaterialTheme.typography.labelLarge,
-                color = Ink.alert,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(Radius.pill))
-                    .clickable(onClick = onStop)
-                    .padding(horizontal = Space.s3, vertical = Space.s2),
+            WatchAction(
+                label = words.stopTracking,
+                onClick = onStop,
+                bordered = false,
+                modifier = Modifier.weight(1f),
+            )
+            WatchAction(
+                label = words.seeOffers,
+                onClick = onOpen,
+                bordered = true,
+                modifier = Modifier.weight(1f),
             )
         }
     }
 }
 
-/**
- * What one watched route and date has cost, as we saw it.
- *
- * Bars, not a line. A line implies the days between two readings, and there
- * often are no days between them: the server records a price when somebody
- * searches, so coverage follows traffic and a quiet route has gaps. A bar
- * stands only where there is a reading, and the count underneath says how
- * many readings the low, average and high rest on.
- *
- * Nothing here is a forecast. The removed predicted price is not coming back
- * through a chart.
- */
+/** 44 tall, half the card wide. Outlined is the one you are meant to press. */
+@Composable
+private fun WatchAction(
+    label: String,
+    onClick: () -> Unit,
+    bordered: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(Radius.sm))
+            .then(
+                if (bordered) Modifier.border(1.dp, Ink.lineStrong, RoundedCornerShape(Radius.sm))
+                else Modifier,
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = Ink.ink,
+            maxLines = 1,
+        )
+    }
+}
 @Composable
 fun PriceHistoryScreen(
     watch: Watch,

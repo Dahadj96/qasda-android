@@ -30,6 +30,15 @@ object Ink {
     val muted = Color(0xFF6D746E)
     val inverse = Color(0xFFFFFFFF)
     val line = Color(0xFFDEDFD9)
+    /**
+     * The hairline between the two times on a flight card.
+     *
+     * Darker than `line`, which is for borders: this one has to read as a
+     * route across white with an aircraft sitting on it, and at `line` it
+     * disappeared into the card. Needs adding to public/style.css so the site
+     * and the app keep agreeing.
+     */
+    val rail = Color(0xFF868D85)
     val lineStrong = Color(0xFFC8CBC4)
     val accent = Color(0xFF11B99A)
     val accentUi = Color(0xFF0D9880)
