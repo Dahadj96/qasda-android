@@ -1,5 +1,14 @@
 package pro.qasdatrip.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -81,7 +90,6 @@ fun ResultsScreen(
     onFilters: (Filters) -> Unit = {},
     onSort: (SortBy) -> Unit = {},
     onCalendar: () -> Unit = {},
-    onChart: () -> Unit = {},
     onOpenFilters: () -> Unit = {},
     onPickDate: (depart: String, back: String?) -> Unit = { _, _ -> },
     onTrack: () -> Unit = {},
@@ -94,8 +102,42 @@ fun ResultsScreen(
     // would leave behind without touching what is on screen.
     val shown = FlightList.apply(state.flights, state.filters, state.sort)
 
-    Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
-        SearchSummaryBar(state, onEdit)
+    // How much of the header is showing.
+    //
+    // The block above the list is four things stacked - the route, three
+    // controls, the carriers, and the count - and together they ate a third
+    // of the screen on every scroll. It now folds as soon as the list starts
+    // moving down and comes back the moment it moves up, which is the
+    // gesture people already make when they want the controls again.
+    //
+    // Driven by the scroll delta rather than by position, so it answers the
+    // direction of the finger instead of where the list happens to be.
+    var expanded by remember { mutableStateOf(true) }
+    val folding = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // A dead band, so a thumb resting on the glass does not
+                // flutter the header open and shut.
+                if (available.y < -6f) expanded = false
+                if (available.y > 6f) expanded = true
+                return Offset.Zero
+            }
+        }
+    }
+
+    // How many of the answers are on screen. A search can come back with
+    // several hundred, and a list that long is not a list, it is a scroll
+    // with no end - people give up rather than reach the bottom.
+    var showing by remember(state.query, state.filters, state.sort) { mutableStateOf(PageSize) }
+    val page = shown.take(showing)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.canvas)
+            .nestedScroll(folding),
+    ) {
+        SearchSummaryBar(state, onEdit, expanded = expanded)
         // A bar with no percentage on it. The server deliberately does not say
         // which sites have answered, so any number here would be invented; what
         // it can honestly report is that the search is still going.
@@ -115,22 +157,30 @@ fun ResultsScreen(
         // with the results are filters people stop finding, and the count
         // beside them is the one number worth keeping on screen.
         if (state.failed == null && !state.empty) {
-            ControlsRow(
-                filters = state.filters,
-                onOpenFilters = onOpenFilters,
-                onCalendar = onCalendar,
-                onChart = onChart,
-            )
-            // The carriers, above the count, computed from everything the
-            // sites sent rather than from what is currently on screen — see
-            // FlightList.airlinesOn for why that matters.
-            if (shown.isNotEmpty() || !state.running) {
-                Spacer(modifier = Modifier.height(Space.s3))
-                AirlineRail(
-                    airlines = FlightList.airlinesOn(state.flights) { Airlines.name(it) },
-                    selected = state.filters.airlines,
-                    onSelect = { picked -> onFilters(state.filters.copy(airlines = picked)) },
-                )
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(Motion.sizeDefault) + fadeIn(Motion.effectsFast),
+                exit = shrinkVertically(Motion.sizeDefault) + fadeOut(Motion.effectsFast),
+            ) {
+                Column {
+                    ControlsRow(
+                        filters = state.filters,
+                        onOpenFilters = onOpenFilters,
+                        onFilters = onFilters,
+                        onCalendar = onCalendar,
+                    )
+                    // The carriers, above the count, computed from everything
+                    // the sites sent rather than from what is currently on
+                    // screen — see FlightList.airlinesOn for why that matters.
+                    if (shown.isNotEmpty() || !state.running) {
+                        Spacer(modifier = Modifier.height(Space.s3))
+                        AirlineRail(
+                            airlines = FlightList.airlinesOn(state.flights) { Airlines.name(it) },
+                            selected = state.filters.airlines,
+                            onSelect = { picked -> onFilters(state.filters.copy(airlines = picked)) },
+                        )
+                    }
+                }
             }
             // Nothing to count and nothing to order until the first offer is
             // in. Left in, it repeated the loading screen's own caption a
@@ -206,7 +256,7 @@ fun ResultsScreen(
                 // back the same flight id for the same leg, and a LazyColumn throws
                 // if a key repeats — a duplicate upstream must never crash the list.
                 itemsIndexed(
-                    shown,
+                    page,
                     key = { index, flight -> "$index:${flight.id ?: flight.hashCode()}" },
                 ) { index, flight ->
                     FlightCard(
@@ -226,12 +276,60 @@ fun ResultsScreen(
                 if (state.running) {
                     items(2) { SkeletonCard() }
                 }
+
+                // The rest, on request. The count is on the button because
+                // "more" alone gives no sense of how much is left, and a
+                // list that ends without saying so reads as a list that
+                // failed to load the rest.
+                val remaining = shown.size - page.size
+                if (remaining > 0 && !state.running) {
+                    item {
+                        MoreButton(remaining = remaining, onClick = { showing += PageSize })
+                    }
+                }
             }
         }
     }
 }
 
 private const val SkeletonCount = 4
+
+/**
+ * How many offers arrive at once.
+ *
+ * Ten is roughly two screens: enough that scrolling feels worthwhile, few
+ * enough that the end is reachable. Every press adds another ten rather than
+ * everything at once, so a search that came back with three hundred never
+ * builds three hundred cards.
+ */
+private const val PageSize = 10
+
+@Composable
+private fun MoreButton(remaining: Int, onClick: () -> Unit) {
+    val words = LocalWords.current
+    val haptics = LocalHaptics.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = Space.s2)
+            .clip(RoundedCornerShape(Radius.pill))
+            .background(Ink.surface)
+            .border(1.dp, Ink.lineStrong, RoundedCornerShape(Radius.pill))
+            .clickable {
+                haptics.play(Feedback.Selection)
+                onClick()
+            }
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            if (remaining == 1) words.showMoreOne
+            else words.showMore.replace("{n}", Money.isolate(remaining.toString())),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = Ink.accentDeep,
+        )
+    }
+}
 
 /**
  * A card-shaped absence.
@@ -339,10 +437,11 @@ private fun Bone(widthFraction: Float, alpha: Float, height: androidx.compose.ui
 private fun ControlsRow(
     filters: Filters,
     onOpenFilters: () -> Unit,
+    onFilters: (Filters) -> Unit = {},
     onCalendar: () -> Unit = {},
-    onChart: () -> Unit = {},
 ) {
     val words = LocalWords.current
+    val haptics = LocalHaptics.current
     // Three equal controls, side by side and full width, exactly as drawn.
     //
     // There used to be a second row of loose chips under this one — Direct,
@@ -370,11 +469,22 @@ private fun ControlsRow(
             onClick = onCalendar,
             modifier = Modifier.weight(1f),
         )
+        // Direct, in the third slot, because it was the one filter people
+        // reach for on every search and it was two taps deep.
+        //
+        // What used to be here was a second door to the same room: the chart
+        // and the calendar are two views of one page, and that page already
+        // has a control to switch between them. Two buttons that open the
+        // same screen is a menu that has not been read back.
+        val direct = filters.maxStops == 0
         ToolButton(
-            label = words.priceChart,
-            icon = R.drawable.ic_chart,
-            on = false,
-            onClick = onChart,
+            label = words.direct,
+            icon = R.drawable.ic_plane_right,
+            on = direct,
+            onClick = {
+                haptics.play(if (direct) Feedback.ToggleOff else Feedback.ToggleOn)
+                onFilters(filters.copy(maxStops = if (direct) null else 0))
+            },
             modifier = Modifier.weight(1f),
         )
     }
@@ -521,7 +631,11 @@ private fun labelFor(sort: SortBy, words: Words): String = when (sort) {
  * look like cards.
  */
 @Composable
-private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
+private fun SearchSummaryBar(
+    state: SearchViewModel.State,
+    onEdit: () -> Unit,
+    expanded: Boolean = true,
+) {
     val lang = LocalLang.current
     val words = LocalWords.current
     val q = state.query ?: return
@@ -533,11 +647,14 @@ private fun SearchSummaryBar(state: SearchViewModel.State, onEdit: () -> Unit) {
         title = "${cityName(q.from, lang)} ${routeArrow(lang)} ${cityName(q.to, lang)}",
         // Dates, travellers and cabin on one grey line: three answers
         // somebody already gave, worth confirming and not worth a row each.
-        subtitle = tripLine(q, lang, words),
+        // The grey line folds away with the rest of the header once the
+        // list is moving: by then somebody is reading prices, not checking
+        // the dates they just chose.
+        subtitle = tripLine(q, lang, words).takeIf { expanded },
         onBack = onEdit,
-        // "Search" on this control meant "go back and change the search",
-        // which is not what the word says.
+        // A pencil, not the word. See QasdaAppBar's actionIcon.
         actionLabel = words.edit,
+        actionIcon = R.drawable.ic_edit,
         onAction = onEdit,
     )
 }

@@ -44,6 +44,8 @@ interface Words {
     val bagNone: String
     val seatsShort: String         // {n}
     val direct: String
+    val showMore: String           // {n}
+    val showMoreOne: String
     val stopsOne: String
     val stopsMany: String          // {n}
     val outbound: String
@@ -355,6 +357,8 @@ private object FrWords : Words {
     override val bagNone = "Sans bagage"
     override val seatsShort = "{n} places"
     override val direct = "Direct"
+    override val showMore = "Voir {n} offres de plus"
+    override val showMoreOne = "Voir une offre de plus"
     override val stopsOne = "1 escale"
     override val stopsMany = "{n} escales"
     override val outbound = "Aller"
@@ -633,6 +637,8 @@ private object ArWords : Words {
     override val bagNone = "بدون حقيبة"
     override val seatsShort = "مقاعد: {n}"
     override val direct = "مباشر"
+    override val showMore = "عرض {n} عروض إضافية"
+    override val showMoreOne = "عرض عرض إضافي واحد"
     override val stopsOne = "توقف واحد"
     override val stopsMany = "{n} توقفات"
     override val outbound = "ذهاب"
@@ -911,6 +917,8 @@ private object EnWords : Words {
     override val bagNone = "No checked bag"
     override val seatsShort = "{n} seats"
     override val direct = "Direct"
+    override val showMore = "Show {n} more offers"
+    override val showMoreOne = "Show 1 more offer"
     override val stopsOne = "1 stop"
     override val stopsMany = "{n} stops"
     override val outbound = "Outbound"
@@ -1184,6 +1192,8 @@ fun Words.everyString(): List<Pair<String, String>> = listOf(
     "bagNone" to bagNone,
     "seatsShort" to seatsShort,
     "direct" to direct,
+    "showMore" to showMore,
+    "showMoreOne" to showMoreOne,
     "stopsOne" to stopsOne,
     "stopsMany" to stopsMany,
     "outbound" to outbound,

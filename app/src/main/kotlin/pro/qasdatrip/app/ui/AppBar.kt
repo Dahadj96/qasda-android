@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +53,15 @@ fun QasdaAppBar(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     actionLabel: String? = null,
+    /**
+     * An icon in place of [actionLabel], with the label kept for the reader.
+     *
+     * A word here has to be translated three ways and is the widest thing in
+     * a bar that also holds a route and a date - "Modifier" and "تعديل" are
+     * both longer than the English. A glyph is one size everywhere, and the
+     * label survives as the accessibility description.
+     */
+    @androidx.annotation.DrawableRes actionIcon: Int? = null,
     onAction: (() -> Unit)? = null,
     large: Boolean = false,
     /**
@@ -116,16 +126,36 @@ fun QasdaAppBar(
             }
         }
         if (actionLabel != null && onAction != null) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = Ink.accentDeep,
-                maxLines = 1,
-                modifier = Modifier
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = Space.s2, vertical = Space.s1),
-            )
+            if (actionIcon != null) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Ink.surface)
+                        .border(1.dp, Ink.line, CircleShape)
+                        .clickable(onClick = onAction)
+                        .semantics { contentDescription = actionLabel },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(actionIcon),
+                        contentDescription = null,
+                        tint = Ink.ink,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            } else {
+                Text(
+                    text = actionLabel,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = Ink.accentDeep,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        .clickable(onClick = onAction)
+                        .padding(horizontal = Space.s2, vertical = Space.s1),
+                )
+            }
         }
     }
 }

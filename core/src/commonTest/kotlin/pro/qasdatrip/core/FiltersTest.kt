@@ -67,6 +67,52 @@ class FilterTest {
         outbound = Leg(departure = departure, stops = stops, duration = duration),
     )
 
+    private fun roundTrip(
+        id: String,
+        outStops: Int?,
+        backStops: Int?,
+        price: Double = 10_000.0,
+    ) = Flight(
+        id = id,
+        isRoundTrip = true,
+        hasLuggage = true,
+        prices = mapOf("volz" to price),
+        outbound = Leg(departure = "08:00", stops = outStops, duration = "2h00"),
+        inbound = Leg(departure = "19:00", stops = backStops, duration = "2h00"),
+    )
+
+    @Test
+    fun `direct on a return trip means direct in both directions`() {
+        // The bug this replaces: only the outbound was read, so a fare that
+        // flew straight out and changed planes on the way home passed a
+        // "direct" filter. Somebody filtering for direct flights was shown a
+        // connection in the half of the trip they were not looking at.
+        val bothDirect = roundTrip("both", outStops = 0, backStops = 0)
+        val homeChanges = roundTrip("home-changes", outStops = 0, backStops = 1)
+        val outChanges = roundTrip("out-changes", outStops = 1, backStops = 0)
+
+        val kept = FlightList.apply(
+            listOf(bothDirect, homeChanges, outChanges),
+            Filters(maxStops = 0),
+            SortBy.PRICE,
+        ).map { it.id }
+
+        assertEquals(listOf("both"), kept)
+    }
+
+    @Test
+    fun `a return leg with no stop count survives a direct filter`() {
+        // Same rule as everywhere else in this file: a filter removes a
+        // flight when the data says to, never because the data was missing.
+        val unknownReturn = roundTrip("unknown-return", outStops = 0, backStops = null)
+        val kept = FlightList.apply(
+            listOf(unknownReturn),
+            Filters(maxStops = 0),
+            SortBy.PRICE,
+        ).map { it.id }
+        assertEquals(listOf("unknown-return"), kept)
+    }
+
     @Test
     fun `a flight with no departure time survives a time filter`() {
         // The rule this file exists to protect: a filter removes a flight when

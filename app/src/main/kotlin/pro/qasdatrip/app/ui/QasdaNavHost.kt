@@ -72,7 +72,6 @@ private const val TRACK_NEW = "track-new"
 private const val TRACK_HISTORY = "track-history"
 private const val NOTIFICATIONS = "notifications"
 private const val FILTERS = "filters"
-private const val CHART = "chart"
 private const val PICK_HOME = "pick-home"
 private const val HANDOVER = "handover"
 
@@ -276,7 +275,7 @@ fun QasdaNavHost(
     // do one thing and leave — a filter sheet, a fare's detail, a step of the
     // search, a handover to a booking site — does not, because the bar there
     // competes with the one action the screen exists for.
-    val withTabBar = setOf(SEARCH, RESULTS, CALENDAR, CHART, TRACKING, NOTIFICATIONS, HELP, ACCOUNT)
+    val withTabBar = setOf(SEARCH, RESULTS, CALENDAR, TRACKING, NOTIFICATIONS, HELP, ACCOUNT)
     val onTopLevel = route in withTabBar
 
 
@@ -311,7 +310,7 @@ fun QasdaNavHost(
                         // own pages: standing on them, Accueil is where you
                         // are, not somewhere else to go.
                         val selected = when (tab) {
-                            Tab.HOME -> route == SEARCH || route == RESULTS || route == CALENDAR || route == CHART
+                            Tab.HOME -> route == SEARCH || route == RESULTS || route == CALENDAR
                             else -> here?.hierarchy?.any {
                                 it.route?.substringBefore('?') == tab.route
                             } == true
@@ -329,12 +328,36 @@ fun QasdaNavHost(
                                 // you are standing on scrolls to the top, and
                                 // a tick for that would be feedback for
                                 // nothing happening.
-                                if (!selected || route != tab.route) {
-                                    haptics.play(Feedback.Selection)
-                                    nav.navigate(tab.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
+                                when {
+                                    // Standing on the tab's own root: nothing
+                                    // to do but scroll to the top, which the
+                                    // list handles itself. A tick here would
+                                    // be feedback for nothing happening.
+                                    selected && route == tab.route -> Unit
+
+                                    // Inside this tab but deeper in - on the
+                                    // results, say. Pop back to the tab's
+                                    // root rather than navigating to it.
+                                    //
+                                    // This is the bug where Accueil did
+                                    // nothing on the results screen:
+                                    // navigate() with saveState saved the
+                                    // stack it had just popped, and
+                                    // restoreState put it straight back, so
+                                    // the app returned to exactly the page
+                                    // somebody was trying to leave.
+                                    selected -> {
+                                        haptics.play(Feedback.Selection)
+                                        nav.popBackStack(tab.route, inclusive = false)
+                                    }
+
+                                    else -> {
+                                        haptics.play(Feedback.Selection)
+                                        nav.navigate(tab.route) {
+                                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                 }
                             },
@@ -461,7 +484,17 @@ fun QasdaNavHost(
                     onBack = { nav.popBackStack() },
                 )
             }
-            composable(REVIEW) {
+            composable(
+                REVIEW,
+                // Up from the bottom, because this is now two things: the
+                // last step of a new search, and the edit sheet for one that
+                // has already run. A sheet is the shape that says "change
+                // this and go back", which is what it does in both cases.
+                enterTransition = Motion.sheetEnter,
+                exitTransition = Motion.sheetExit,
+                popEnterTransition = Motion.sheetPopEnter,
+                popExitTransition = Motion.sheetPopExit,
+            ) {
                 ReviewScreen(
                     draft = draft,
                     onEditFrom = { nav.navigate(PICK_FROM) },
@@ -484,12 +517,18 @@ fun QasdaNavHost(
                     // what the details screen is for.
                     onBook = { goToBooking(it, null) },
                     onRetry = { vm.retry() },
+                    // Edit opens the summary, not the home screen.
+                    //
+                    // It used to walk somebody all the way back to the front
+                    // of the app to change one date - past the results they
+                    // were reading, which were then gone. The summary is the
+                    // same four answers with an Edit beside each and a
+                    // Search at the bottom, it arrives from below like a
+                    // sheet, and Back returns to the list still on screen
+                    // behind it.
                     onEdit = {
                         state.query?.let { form.load(it, keepDates = true) }
-                        nav.navigate(SEARCH) {
-                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                        }
+                        nav.navigate(REVIEW)
                     },
                     onFilters = { vm.filter(it) },
                     onSort = { vm.sortBy(it) },
@@ -497,10 +536,6 @@ fun QasdaNavHost(
                     onCalendar = {
                         vm.loadCalendar()
                         nav.navigate(CALENDAR)
-                    },
-                    onChart = {
-                        vm.loadCalendar()
-                        nav.navigate(CHART)
                     },
                     onPickDate = { depart, back -> searchDate(depart, back) },
                     onTrack = {
@@ -543,23 +578,6 @@ fun QasdaNavHost(
                     onBack = { nav.popBackStack() },
                 )
             }
-            composable(CHART) {
-                CalendarScreen(
-                    calendar = state.calendar,
-                    loading = state.calendarLoading,
-                    chosenDepart = state.query?.departDate,
-                    chosenReturn = state.query?.returnDate,
-                    origin = state.query?.from,
-                    destination = state.query?.to,
-                    onPick = { depart, back ->
-                        searchDate(depart, back)
-                        nav.popBackStack()
-                    },
-                    onBack = { nav.popBackStack() },
-                    startOnChart = true,
-                )
-            }
-            // The page between the app and somebody else's checkout.
             composable(HANDOVER) {
                 val chosen = handover
                 if (chosen == null) {

@@ -12,7 +12,10 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavBackStackEntry
 
 /**
@@ -73,6 +76,17 @@ object Motion {
      * holding the transition open. `IntOffset.VisibilityThreshold` is half a
      * pixel, which is where the eye actually stops.
      */
+    /**
+     * For anything whose measured height changes - a header folding away.
+     *
+     * Its own threshold for the same reason the offset spring has one: the
+     * default 0.01 is calibrated for a float between 0 and 1, and left alone
+     * on a size in pixels the spring keeps simulating long after the fold
+     * has visibly finished.
+     */
+    val sizeDefault: FiniteAnimationSpec<IntSize> =
+        spring(SPATIAL_DAMPING, STIFF_DEFAULT, IntSize.VisibilityThreshold)
+
     private val slideSlow: FiniteAnimationSpec<IntOffset> =
         spring(SPATIAL_DAMPING, STIFF_SLOW, IntOffset.VisibilityThreshold)
 
@@ -141,5 +155,36 @@ object Motion {
         if (jumping()) tabExit else {
             slideOutHorizontally(slideSlow) { it / ENTER_FRACTION } + fadeOut(effectsFast)
         }
+    }
+
+    /**
+     * A page that arrives from the bottom of the screen.
+     *
+     * For the two screens that are modal in feel rather than in stack
+     * position - the filters, and the search summary reached from the
+     * results - where sideways travel would claim they sit beside the list
+     * they came from. The page underneath stays put and only dims, which is
+     * what makes the thing on top read as temporary.
+     *
+     * Vertical travel is the full height, so this uses its own spring: a
+     * quarter-screen slide reads as a nudge when the direction is down.
+     */
+    private val slideVertical: FiniteAnimationSpec<IntOffset> =
+        spring(SPATIAL_DAMPING, STIFF_SLOW, IntOffset.VisibilityThreshold)
+
+    val sheetEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideInVertically(slideVertical) { it } + fadeIn(effectsFast)
+    }
+
+    val sheetExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        fadeOut(effectsFast)
+    }
+
+    val sheetPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        fadeIn(effectsFast)
+    }
+
+    val sheetPopExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutVertically(slideVertical) { it } + fadeOut(effectsFast)
     }
 }
