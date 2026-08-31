@@ -13,3 +13,5 @@ captures/
 .hero/
 .shots/
 *.apk
+.commitmsg
+.prbody
