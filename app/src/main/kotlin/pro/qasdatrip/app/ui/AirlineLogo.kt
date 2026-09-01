@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -23,8 +24,13 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.platform.LocalContext
-import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.core.Airlines
+
+/** The disc every carrier mark sits on. Not a theme colour - see above. */
+private val Plate = Color.White
+private val PlateFallback = Color(0xFFF2F3EF)
+private val PlateEdge = Color(0x14000000)
+private val PlateInk = Color(0xFF6D746E)
 
 /**
  * The carrier's mark, in a circle.
@@ -34,6 +40,14 @@ import pro.qasdatrip.core.Airlines
  * list of a dozen rows that differ only in typography is read line by line,
  * and the same list with marks down the left is scanned. People know what
  * Air Algérie looks like before they have read the word.
+ *
+ * The plate is white in both themes, on purpose. Many carrier marks are
+ * supplied on their own white background rather than as a transparent PNG,
+ * so on a dark circle they showed as a white rectangle inside a dark ring -
+ * every airline looking like a printing error. A white disc is what an app
+ * icon does, and it is the only treatment that is right for every mark we do
+ * not control. The hairline round it is a fixed 8% black: an edge on paper,
+ * invisible against a dark card.
  *
  * Three things make it safe to put back. The mark is loaded at 70px and
  * drawn at 36dp, so it costs one small request that Coil then caches for
@@ -57,8 +71,8 @@ fun AirlineLogo(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(if (failed) Ink.surfaceSoft else Ink.surface)
-            .border(1.dp, Ink.line, CircleShape),
+            .background(if (failed) PlateFallback else Plate)
+            .border(1.dp, PlateEdge, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         if (failed) {
@@ -68,7 +82,9 @@ fun AirlineLogo(
             Text(
                 text = clean.take(2).ifEmpty { "··" },
                 style = MaterialTheme.typography.labelMedium,
-                color = Ink.muted,
+                // Fixed, like the plate under it: the two letters sit on
+                // white in both themes, so a theme-aware ink would vanish.
+                color = PlateInk,
                 textAlign = TextAlign.Center,
             )
         } else {

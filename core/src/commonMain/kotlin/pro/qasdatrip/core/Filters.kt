@@ -105,12 +105,25 @@ object FlightList {
         val price = flight.cheapest?.second
         if (f.maxPrice != null && price != null && price > f.maxPrice) return false
 
+        // Both legs, not just the outbound.
+        //
+        // "Direct" on a return trip means direct in both directions. Reading
+        // only the outbound meant somebody who asked for a direct flight was
+        // shown fares that changed planes on the way home - which is exactly
+        // the thing they were filtering out, arriving in the half of the trip
+        // they were not looking at.
+        //
         // The derived count, not the raw field: the server leaves `stops`
         // empty on routes where the segments plainly show a change of plane,
         // and a direct-only filter that returns everything is worse than no
-        // filter at all.
-        val stops = flight.outbound?.stopCount ?: flight.stops
-        if (f.maxStops != null && stops != null && stops > f.maxStops) return false
+        // filter at all. Unknown still survives, on both legs, for the reason
+        // at the top of this file.
+        if (f.maxStops != null) {
+            val out = flight.outbound?.stopCount ?: flight.stops
+            if (out != null && out > f.maxStops) return false
+            val back = flight.inbound?.stopCount
+            if (back != null && back > f.maxStops) return false
+        }
 
         if (f.departBands.isNotEmpty()) {
             val minutes = clockMinutes(flight.outboundOrSelf?.departure)

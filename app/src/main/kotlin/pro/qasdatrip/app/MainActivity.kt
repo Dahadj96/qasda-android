@@ -12,6 +12,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.animation.doOnEnd
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,9 +27,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import pro.qasdatrip.app.data.Settings
 import pro.qasdatrip.app.data.onlineFlow
 import pro.qasdatrip.app.ui.AlertPrefs
+import pro.qasdatrip.app.ui.LocalHaptics
 import pro.qasdatrip.app.ui.LocalOnline
+import pro.qasdatrip.app.ui.rememberHaptics
 import pro.qasdatrip.app.ui.QasdaNavHost
+import pro.qasdatrip.app.ui.theme.LocalDark
 import pro.qasdatrip.app.ui.theme.QasdaTheme
+import pro.qasdatrip.app.ui.theme.ThemeMode
 import pro.qasdatrip.core.Lang
 
 /** How long the mark stays up on a start that is faster than the eye. */
@@ -81,6 +89,7 @@ class MainActivity : ComponentActivity() {
             var manageKey by remember { mutableStateOf(settings.manageKey) }
             var homeAirport by remember { mutableStateOf(settings.homeAirport) }
             var alertsSeenAt by remember { mutableStateOf(settings.alertsSeenAt) }
+            var themeMode by remember { mutableStateOf(ThemeMode.of(settings.themeMode)) }
             var alertPrefs by remember {
                 mutableStateOf(
                     AlertPrefs(settings.alertDrops, settings.alertSeats, settings.alertEnded),
@@ -92,12 +101,18 @@ class MainActivity : ComponentActivity() {
             // system has answered should not accuse anybody of being offline.
             val online by remember { onlineFlow() }.collectAsStateWithLifecycle(initialValue = true)
 
-            QasdaTheme(lang) {
+            QasdaTheme(lang, themeMode) {
+                // The status and navigation bar icons are the system's, not
+                // ours, and they only have two settings: dark glyphs or light
+                // ones. Left alone they stay dark, which on a near-black
+                // canvas is a black clock on a black bar.
+                SystemBarIcons(dark = LocalDark.current)
                 // Arabic mirrors the whole layout rather than a hand-written
                 // RTL sheet, which is why this wraps everything.
                 CompositionLocalProvider(
                     LocalLayoutDirection provides if (lang.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                     LocalOnline provides online,
+                    LocalHaptics provides rememberHaptics(),
                 ) {
                     QasdaNavHost(
                         api = (application as QasdaApplication).api,
@@ -138,6 +153,11 @@ class MainActivity : ComponentActivity() {
                             settings.recent = emptyList()
                             recent = emptyList()
                         },
+                        themeMode = themeMode,
+                        onThemeMode = { picked ->
+                            settings.themeMode = picked.tag
+                            themeMode = picked
+                        },
                         alertsSeenAt = alertsSeenAt,
                         onAlertsSeen = {
                             val now = System.currentTimeMillis()
@@ -161,5 +181,30 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+    }
+}
+
+/**
+ * Dark glyphs on a light app, light glyphs on a dark one.
+ *
+ * Under edge-to-edge the app paints behind both system bars, so the clock and
+ * the gesture pill are drawn on top of whatever the app has put there. This is
+ * the only control there is over them, and it has to move with the theme
+ * rather than being set once at startup.
+ */
+@Composable
+private fun SystemBarIcons(dark: Boolean) {
+    val view = LocalView.current
+    if (view.isInEditMode) return
+    // Keyed on the theme rather than run after every composition. As a
+    // SideEffect this fought the home screen, which asks for light glyphs in
+    // both themes because its photograph is dark under the clock: every
+    // keystroke elsewhere in the tree re-ran this and took them back.
+    LaunchedEffect(dark) {
+        val window = (view.context as android.app.Activity).window
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
     }
 }

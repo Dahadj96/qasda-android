@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -49,13 +53,36 @@ fun QasdaAppBar(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     actionLabel: String? = null,
+    /**
+     * An icon in place of [actionLabel], with the label kept for the reader.
+     *
+     * A word here has to be translated three ways and is the widest thing in
+     * a bar that also holds a route and a date - "Modifier" and "تعديل" are
+     * both longer than the English. A glyph is one size everywhere, and the
+     * label survives as the accessibility description.
+     */
+    @androidx.annotation.DrawableRes actionIcon: Int? = null,
     onAction: (() -> Unit)? = null,
     large: Boolean = false,
+    /**
+     * False where the bar scrolls with the list it sits in.
+     *
+     * A bar inside a LazyColumn cannot hold the status bar inset for the
+     * screen: it scrolls away, and takes the protection with it, leaving the
+     * rows underneath to slide under the clock. On those screens the list
+     * itself is padded and the bar must not pad again.
+     */
+    inset: Boolean = true,
 ) {
     val words = LocalWords.current
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // The status bar inset lives here rather than on the Scaffold, so
+            // that the one screen without a bar - home, whose photograph runs
+            // to the top of the glass - can put its own content under the
+            // clock instead of being pushed below it.
+            .then(if (inset) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
             .padding(horizontal = Space.s4, vertical = Space.s3),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
@@ -99,16 +126,36 @@ fun QasdaAppBar(
             }
         }
         if (actionLabel != null && onAction != null) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = Ink.accentDeep,
-                maxLines = 1,
-                modifier = Modifier
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = Space.s2, vertical = Space.s1),
-            )
+            if (actionIcon != null) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Ink.surface)
+                        .border(1.dp, Ink.line, CircleShape)
+                        .clickable(onClick = onAction)
+                        .semantics { contentDescription = actionLabel },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(actionIcon),
+                        contentDescription = null,
+                        tint = Ink.ink,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            } else {
+                Text(
+                    text = actionLabel,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = Ink.accentDeep,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                        .clickable(onClick = onAction)
+                        .padding(horizontal = Space.s2, vertical = Space.s1),
+                )
+            }
         }
     }
 }

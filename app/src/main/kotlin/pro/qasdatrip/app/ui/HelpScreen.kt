@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -51,12 +54,16 @@ fun HelpScreen(onContact: () -> Unit) {
     val groups = remember(lang) { Help.groups(lang) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Ink.canvas),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.canvas)
+            .windowInsetsPadding(WindowInsets.statusBars),
         contentPadding = PaddingValues(Space.s4),
         verticalArrangement = Arrangement.spacedBy(Space.s4),
     ) {
         item {
             QasdaAppBar(
+                    inset = false,
                 title = words.navHelp,
                 large = true,
                 modifier = Modifier.padding(horizontal = 0.dp),

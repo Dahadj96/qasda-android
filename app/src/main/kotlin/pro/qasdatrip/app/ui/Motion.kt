@@ -3,65 +3,106 @@ package pro.qasdatrip.app.ui
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.navigation.NavBackStackEntry
 
 /**
  * How pages replace each other.
  *
- * The app shipped on Navigation Compose's defaults, and they read wrong on a
- * phone: the whole screen slides a full width in one direction while the old
- * one slides a full width out, with no fade, so the eye tracks two moving
- * pictures at once and the result looks cut together rather than navigated.
+ * This used to be six cubic-beziers and two durations, and they were not the
+ * wrong ones: 320ms on (0.2, 0, 0, 1) is exactly Material 3's "emphasized"
+ * token, copied faithfully. It still looked like footage rather than
+ * navigation, and the reason is structural.
  *
- * What professional apps do instead is the shared-axis transition: the
- * outgoing page moves a *short* distance and fades out, the incoming page
- * moves the same short distance and fades in, and the fade — not the
- * distance — carries the change. Motion under about 40dp keeps the eye on the
- * content instead of on the animation, and the two halves overlap so there is
- * never a frame of empty canvas between them.
+ * A tween is a timeline: position is a function of elapsed time alone. It has
+ * no idea how fast anything was already moving. Interrupt one - a second tab
+ * pressed before the first has settled, a back gesture released halfway - and
+ * Compose starts a brand new curve from wherever the screen happens to be,
+ * at zero speed. Every emphasized curve leaves the origin flat, so the eye
+ * sees the page moving, stopping dead, and starting again. That stutter is
+ * what reads as "edited together".
  *
- * Durations follow Material's guidance for a full-screen change and are
- * deliberately asymmetric: leaving is quicker than arriving, because nobody
- * needs to watch a page they have finished with.
+ * A spring is a simulation over position *and* velocity. Redirect it and the
+ * new motion inherits the speed the old one had, so an interruption is a
+ * curve rather than a cut. It also solves a second complaint for free:
+ * settle time falls out of distance and stiffness, so a chip and a
+ * full-screen push no longer take the same 320ms - one of them was always
+ * going to look wrong at a shared duration.
+ *
+ * The numbers below are Material 3 Expressive's own `standard` motion scheme,
+ * written out as springs. They are not invented: when this project moves to
+ * material3 1.4, every one of these can be replaced by the matching
+ * `MaterialTheme.motionScheme` spec and nothing on screen should change.
+ * Standard rather than expressive, deliberately - expressive's 0.6 damping is
+ * lovely on a hero and wearing on the fortieth filter chip of a price search.
  */
 object Motion {
 
-    /** Material's standard easing. Decelerates into place; never linear. */
-    private val Emphasised = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-    private val Accelerate = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
+    // Spatial: anything that changes shape or position. May overshoot.
+    private const val SPATIAL_DAMPING = 0.9f
+    private const val STIFF_FAST = 1400f
+    private const val STIFF_DEFAULT = 700f
+    private const val STIFF_SLOW = 300f
 
-    private const val ENTER_MS = 320
-    private const val EXIT_MS = 240
+    // Effects: colour, alpha, elevation. Critically damped, always - an alpha
+    // that overshoots is a flash, not a bounce.
+    private const val EFFECT_DAMPING = 1f
+    private const val EFFECT_FAST = 3800f
+    private const val EFFECT_DEFAULT = 1600f
+
+    val spatialFast: FiniteAnimationSpec<Float> = spring(SPATIAL_DAMPING, STIFF_FAST)
+    val spatialDefault: FiniteAnimationSpec<Float> = spring(SPATIAL_DAMPING, STIFF_DEFAULT)
+    val effectsFast: FiniteAnimationSpec<Float> = spring(EFFECT_DAMPING, EFFECT_FAST)
+    val effectsDefault: FiniteAnimationSpec<Float> = spring(EFFECT_DAMPING, EFFECT_DEFAULT)
 
     /**
-     * How far a page travels. A twelfth of the screen: far enough to say
-     * "this came from the right", short enough that it never reads as a swipe.
+     * The offset springs carry a visibility threshold, and must.
+     *
+     * Compose's default threshold is 0.01, calibrated for a float between 0
+     * and 1. Left at that on an IntOffset measured in pixels, the spring keeps
+     * simulating long after the movement is invisible - burning frames and
+     * holding the transition open. `IntOffset.VisibilityThreshold` is half a
+     * pixel, which is where the eye actually stops.
      */
-    private fun offset(width: Int) = width / 12
+    /**
+     * For anything whose measured height changes - a header folding away.
+     *
+     * Its own threshold for the same reason the offset spring has one: the
+     * default 0.01 is calibrated for a float between 0 and 1, and left alone
+     * on a size in pixels the spring keeps simulating long after the fold
+     * has visibly finished.
+     */
+    val sizeDefault: FiniteAnimationSpec<IntSize> =
+        spring(SPATIAL_DAMPING, STIFF_DEFAULT, IntSize.VisibilityThreshold)
+
+    private val slideSlow: FiniteAnimationSpec<IntOffset> =
+        spring(SPATIAL_DAMPING, STIFF_SLOW, IntOffset.VisibilityThreshold)
 
     /**
      * Switching tabs is not travel.
      *
      * Sliding sideways between Accueil and Compte would imply they sit next to
      * each other and that one is "back" from the other, which is false in a
-     * bar you can jump around. A fade with a hair of scale says "different
-     * place" without claiming a direction.
+     * bar you can jump around from any position. A fast fade with a hair of
+     * scale says "different place" without claiming a direction - and it is
+     * fast, because a root destination should feel like it was already there.
      */
     private val tabEnter: EnterTransition =
-        fadeIn(tween(260, easing = Emphasised)) +
-            scaleIn(tween(260, easing = Emphasised), initialScale = 0.985f)
+        fadeIn(effectsDefault) + scaleIn(spatialFast, initialScale = 0.96f)
 
-    private val tabExit: ExitTransition =
-        fadeOut(tween(180, easing = Accelerate)) +
-            scaleOut(tween(180, easing = Accelerate), targetScale = 1.015f)
+    private val tabExit: ExitTransition = fadeOut(effectsFast)
 
     /** The four bar destinations. A move between any two of them is a jump. */
     private val roots = setOf("search", "tracking", "help", "account")
@@ -72,31 +113,78 @@ object Motion {
     private fun AnimatedContentTransitionScope<NavBackStackEntry>.jumping(): Boolean =
         initialState.root() && targetState.root()
 
+    /**
+     * Push and pop travel different distances on purpose.
+     *
+     * The arriving page comes a quarter of the screen; the leaving one only
+     * moves a sixth, the other way. That difference is what reads as depth -
+     * the near thing moves further than the far thing - where two pages
+     * sliding the same distance read as one filmstrip being dragged past.
+     */
+    private const val ENTER_FRACTION = 4
+    private const val EXIT_FRACTION = 6
+
     val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
         if (jumping()) tabEnter else {
-            slideInHorizontally(tween(ENTER_MS, easing = Emphasised)) { offset(it) } +
-                fadeIn(tween(ENTER_MS, delayMillis = 40, easing = Emphasised))
+            slideInHorizontally(slideSlow) { it / ENTER_FRACTION } + fadeIn(effectsFast)
         }
     }
 
     val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
         if (jumping()) tabExit else {
-            slideOutHorizontally(tween(EXIT_MS, easing = Accelerate)) { -offset(it) } +
-                fadeOut(tween(EXIT_MS, easing = Accelerate))
+            slideOutHorizontally(slideSlow) { -it / EXIT_FRACTION } + fadeOut(effectsFast)
         }
     }
 
+    /**
+     * Pop is written out rather than left to the framework.
+     *
+     * Navigation Compose falls back to a cross-fade for pop when it is not
+     * told otherwise, and a cross-fade is precisely the "video edit" look.
+     * It matters twice over now: predictive back *seeks* these transitions
+     * against the drag, so whatever is written here is what the person's
+     * thumb is scrubbing through.
+     */
     val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
         if (jumping()) tabEnter else {
-            slideInHorizontally(tween(ENTER_MS, easing = Emphasised)) { -offset(it) } +
-                fadeIn(tween(ENTER_MS, delayMillis = 40, easing = Emphasised))
+            slideInHorizontally(slideSlow) { -it / EXIT_FRACTION } + fadeIn(effectsFast)
         }
     }
 
     val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
         if (jumping()) tabExit else {
-            slideOutHorizontally(tween(EXIT_MS, easing = Accelerate)) { offset(it) } +
-                fadeOut(tween(EXIT_MS, easing = Accelerate))
+            slideOutHorizontally(slideSlow) { it / ENTER_FRACTION } + fadeOut(effectsFast)
         }
+    }
+
+    /**
+     * A page that arrives from the bottom of the screen.
+     *
+     * For the two screens that are modal in feel rather than in stack
+     * position - the filters, and the search summary reached from the
+     * results - where sideways travel would claim they sit beside the list
+     * they came from. The page underneath stays put and only dims, which is
+     * what makes the thing on top read as temporary.
+     *
+     * Vertical travel is the full height, so this uses its own spring: a
+     * quarter-screen slide reads as a nudge when the direction is down.
+     */
+    private val slideVertical: FiniteAnimationSpec<IntOffset> =
+        spring(SPATIAL_DAMPING, STIFF_SLOW, IntOffset.VisibilityThreshold)
+
+    val sheetEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideInVertically(slideVertical) { it } + fadeIn(effectsFast)
+    }
+
+    val sheetExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        fadeOut(effectsFast)
+    }
+
+    val sheetPopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        fadeIn(effectsFast)
+    }
+
+    val sheetPopExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutVertically(slideVertical) { it } + fadeOut(effectsFast)
     }
 }

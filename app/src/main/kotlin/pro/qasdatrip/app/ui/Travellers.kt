@@ -146,7 +146,7 @@ fun TravellersPicker(
             onClick = { onApply(a, c, i, klass) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(Radius.sm),
-            colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
+            colors = ButtonDefaults.buttonColors(containerColor = Ink.solid, contentColor = Ink.onSolid),
         ) { Text(words.apply, fontWeight = FontWeight.SemiBold) }
     }
 }

@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -71,7 +74,12 @@ fun TrackingScreen(
     val words = LocalWords.current
     val lang = LocalLang.current
 
-    Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.canvas)
+            .windowInsetsPadding(WindowInsets.statusBars),
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(Space.s4),
@@ -83,6 +91,7 @@ fun TrackingScreen(
                     // screen called itself "Mon suivi" while the bar called
                     // it "Suivi", which is two names for one place.
                     QasdaAppBar(
+                    inset = false,
                         title = words.navTracking,
                         large = true,
                         actionLabel = words.notificationsTitle,
@@ -138,7 +147,7 @@ fun TrackingScreen(
                 Button(
                     onClick = onNew,
                     shape = RoundedCornerShape(Radius.pill),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
+                    colors = ButtonDefaults.buttonColors(containerColor = Ink.solid, contentColor = Ink.onSolid),
                     modifier = Modifier.fillMaxWidth().padding(top = Space.s2),
                 ) { Text(words.newTracking) }
             }
@@ -382,7 +391,7 @@ fun PriceHistoryScreen(
                 Button(
                     onClick = onSearch,
                     shape = RoundedCornerShape(Radius.pill),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ink.ink, contentColor = Ink.inverse),
+                    colors = ButtonDefaults.buttonColors(containerColor = Ink.solid, contentColor = Ink.onSolid),
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text(words.seeTodayOffers, style = MaterialTheme.typography.titleMedium) }
             }

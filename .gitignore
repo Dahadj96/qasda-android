@@ -10,3 +10,8 @@ captures/
 *.jks
 *.keystore
 !debug.keystore
+.hero/
+.shots/
+*.apk
+.commitmsg
+.prbody

@@ -120,7 +120,7 @@ private fun Banner(name: String, tagline: String) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.md))
-            .background(Ink.ink)
+            .background(Ink.solid)
             .padding(vertical = Space.s6, horizontal = Space.s4),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Space.s2),

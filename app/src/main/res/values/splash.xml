@@ -3,4 +3,6 @@
     <!-- White, as asked, not the app's warm canvas: the splash is a held
          breath before the product, and a tint here would read as a page. -->
     <color name="splash_background">#FFFFFF</color>
+    <color name="splash_mark">#232522</color>
+    <color name="splash_dot">#11B99A</color>
 </resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Light glyphs in the status bar, because the window behind them is now
+        dark. Compose sets this too, once it is running; this is the same
+        answer for the frames before that, which are the splash's.
+    -->
+    <style name="Theme.Qasda" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.Qasda.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Qasda</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

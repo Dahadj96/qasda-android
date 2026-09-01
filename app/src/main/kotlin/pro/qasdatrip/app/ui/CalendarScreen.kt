@@ -317,7 +317,7 @@ private fun DayTile(
             .clip(RoundedCornerShape(Radius.md))
             .background(
                 when {
-                    selected -> Ink.ink
+                    selected -> Ink.solid
                     best -> Ink.accentSoft
                     priced -> Ink.surface
                     else -> Ink.canvas
@@ -326,7 +326,7 @@ private fun DayTile(
             .border(
                 width = if (best || selected) 2.dp else 1.dp,
                 color = when {
-                    selected -> Ink.ink
+                    selected -> Ink.solid
                     best -> Ink.accentUi
                     else -> Ink.line
                 },
@@ -342,13 +342,13 @@ private fun DayTile(
         Text(
             weekdayLabel(date, lang),
             style = MaterialTheme.typography.labelSmall,
-            color = if (selected) Ink.inverse else Ink.muted,
+            color = if (selected) Ink.onSolid else Ink.muted,
             maxLines = 1,
         )
         Text(
             dayNumber(date, lang),
             style = MaterialTheme.typography.titleLarge,
-            color = if (selected) Ink.inverse else Ink.ink,
+            color = if (selected) Ink.onSolid else Ink.ink,
             maxLines = 1,
         )
         Text(
@@ -357,7 +357,7 @@ private fun DayTile(
             if (priced) Money.amount(cell!!.price!!) else "—",
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
             color = when {
-                selected -> Ink.inverse
+                selected -> Ink.onSolid
                 best -> Ink.accentDeep
                 priced -> Ink.inkSoft
                 else -> Ink.muted
@@ -435,7 +435,7 @@ private fun MatrixCell(cell: CalendarCell?, selected: Boolean, lang: Lang, onCli
             .clip(RoundedCornerShape(Radius.sm))
             .background(
                 when {
-                    selected -> Ink.ink
+                    selected -> Ink.solid
                     best -> Ink.accentSoft
                     priced -> Ink.surface
                     else -> Ink.canvas
@@ -443,7 +443,7 @@ private fun MatrixCell(cell: CalendarCell?, selected: Boolean, lang: Lang, onCli
             )
             .border(
                 width = if (best || selected) 2.dp else 1.dp,
-                color = if (selected) Ink.ink else if (best) Ink.accentUi else Ink.line,
+                color = if (selected) Ink.solid else if (best) Ink.accentUi else Ink.line,
                 shape = RoundedCornerShape(Radius.sm),
             )
             .then(if (priced) Modifier.clickable(onClick = onClick) else Modifier),
@@ -454,7 +454,7 @@ private fun MatrixCell(cell: CalendarCell?, selected: Boolean, lang: Lang, onCli
                 Money.amount(cell!!.price!!),
                 style = MaterialTheme.typography.labelSmall,
                 color = when {
-                    selected -> Ink.inverse
+                    selected -> Ink.onSolid
                     best -> Ink.accentDeep
                     else -> Ink.ink
                 },

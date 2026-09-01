@@ -44,6 +44,8 @@ interface Words {
     val bagNone: String
     val seatsShort: String         // {n}
     val direct: String
+    val showMore: String           // {n}
+    val showMoreOne: String
     val stopsOne: String
     val stopsMany: String          // {n}
     val outbound: String
@@ -267,6 +269,10 @@ interface Words {
     val prefEndedSub: String
     val prefMutedNote: String
     val display: String
+    val theme: String
+    val themeSystem: String
+    val themeLight: String
+    val themeDark: String
     val dataSection: String
     val clearRecent: String
     val clearRecentSub: String     // {n}
@@ -351,6 +357,8 @@ private object FrWords : Words {
     override val bagNone = "Sans bagage"
     override val seatsShort = "{n} places"
     override val direct = "Direct"
+    override val showMore = "Voir {n} offres de plus"
+    override val showMoreOne = "Voir une offre de plus"
     override val stopsOne = "1 escale"
     override val stopsMany = "{n} escales"
     override val outbound = "Aller"
@@ -570,6 +578,10 @@ private object FrWords : Words {
     override val prefEndedSub = "Quand la date d\u2019un suivi est passée"
     override val prefMutedNote = "Si vous coupez tout, les suivis continuent mais rien ne vous parvient."
     override val display = "Affichage"
+    override val theme = "Thème"
+    override val themeSystem = "Comme le téléphone"
+    override val themeLight = "Clair"
+    override val themeDark = "Sombre"
     override val dataSection = "Données"
     override val clearRecent = "Effacer les recherches récentes"
     override val clearRecentSub = "{n} recherches enregistrées sur cet appareil"
@@ -625,6 +637,8 @@ private object ArWords : Words {
     override val bagNone = "بدون حقيبة"
     override val seatsShort = "مقاعد: {n}"
     override val direct = "مباشر"
+    override val showMore = "عرض {n} عروض إضافية"
+    override val showMoreOne = "عرض عرض إضافي واحد"
     override val stopsOne = "توقف واحد"
     override val stopsMany = "{n} توقفات"
     override val outbound = "ذهاب"
@@ -844,6 +858,10 @@ private object ArWords : Words {
     override val prefEndedSub = "عندما يمر تاريخ المتابعة"
     override val prefMutedNote = "إذا أوقفت كل شيء، تستمر المتابعة لكن لن يصلك أي إشعار."
     override val display = "العرض"
+    override val theme = "المظهر"
+    override val themeSystem = "حسب الهاتف"
+    override val themeLight = "فاتح"
+    override val themeDark = "داكن"
     override val dataSection = "البيانات"
     override val clearRecent = "مسح عمليات البحث الأخيرة"
     override val clearRecentSub = "{n} عمليات بحث محفوظة على هذا الجهاز"
@@ -899,6 +917,8 @@ private object EnWords : Words {
     override val bagNone = "No checked bag"
     override val seatsShort = "{n} seats"
     override val direct = "Direct"
+    override val showMore = "Show {n} more offers"
+    override val showMoreOne = "Show 1 more offer"
     override val stopsOne = "1 stop"
     override val stopsMany = "{n} stops"
     override val outbound = "Outbound"
@@ -1118,6 +1138,10 @@ private object EnWords : Words {
     override val prefEndedSub = "When a tracked date has passed"
     override val prefMutedNote = "Turn everything off and the routes stay tracked, but nothing reaches you."
     override val display = "Display"
+    override val theme = "Theme"
+    override val themeSystem = "Match phone"
+    override val themeLight = "Light"
+    override val themeDark = "Dark"
     override val dataSection = "Data"
     override val clearRecent = "Clear recent searches"
     override val clearRecentSub = "{n} searches kept on this device"
@@ -1168,6 +1192,8 @@ fun Words.everyString(): List<Pair<String, String>> = listOf(
     "bagNone" to bagNone,
     "seatsShort" to seatsShort,
     "direct" to direct,
+    "showMore" to showMore,
+    "showMoreOne" to showMoreOne,
     "stopsOne" to stopsOne,
     "stopsMany" to stopsMany,
     "outbound" to outbound,
@@ -1387,6 +1413,10 @@ fun Words.everyString(): List<Pair<String, String>> = listOf(
     "prefEndedSub" to prefEndedSub,
     "prefMutedNote" to prefMutedNote,
     "display" to display,
+    "theme" to theme,
+    "themeSystem" to themeSystem,
+    "themeLight" to themeLight,
+    "themeDark" to themeDark,
     "dataSection" to dataSection,
     "clearRecent" to clearRecent,
     "clearRecentSub" to clearRecentSub,
