@@ -38,6 +38,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
@@ -417,6 +418,9 @@ fun QasdaNavHost(
                 val query = draft.toQuery()
                 onRemember(query)
                 vm.search(query)
+                // The form's quick filters are the results' filters, applied
+                // on arrival, so the list opens already saying what was asked.
+                vm.filter(draft.toFilters())
                 nav.navigate(RESULTS) {
                     popUpTo(SEARCH)
                     launchSingleTop = true
@@ -432,6 +436,8 @@ fun QasdaNavHost(
                     onPickTo = { nav.navigate(PICK_TO) },
                     onPickDates = { nav.navigate(PICK_DATES) },
                     onPickTravellers = { nav.navigate(PICK_TRAVELLERS) },
+                    onDirectOnly = { form.directOnly(it) },
+                    onBagOnly = { form.bagOnly(it) },
                     onSearch = runSearch,
                     onLanguage = { nav.navigate(SETTINGS) },
                     onRecent = { past ->
@@ -483,8 +489,12 @@ fun QasdaNavHost(
                     onBack = { editingSearch = false; nav.popBackStack() },
                 )
             }
-            composable(PICK_DATES) {
+            composable(
+                "$PICK_DATES?slot={slot}",
+                arguments = listOf(navArgument("slot") { defaultValue = "depart" }),
+            ) { entry ->
                 DatesScreen(
+                    startOnReturn = entry.arguments?.getString("slot") == "return",
                     depart = draft.depart,
                     back = draft.back,
                     roundTrip = draft.roundTrip,
@@ -534,6 +544,10 @@ fun QasdaNavHost(
                     // behind it.
                     onEdit = {
                         state.query?.let { form.load(it, keepDates = true) }
+                        // The sheet's quick filters are the list's filters,
+                        // so it opens showing what the list is showing.
+                        form.directOnly(state.filters.maxStops == 0)
+                        form.bagOnly(state.filters.bagOnly)
                         sheetOpen = true
                     },
                     onFilters = { vm.filter(it) },
@@ -559,7 +573,13 @@ fun QasdaNavHost(
                         onShiftReturn = { form.shiftReturn(it) },
                         onPickFrom = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_FROM) },
                         onPickTo = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_TO) },
-                        onPickDates = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_DATES) },
+                        onPickDates = { slot ->
+                            sheetOpen = false
+                            editingSearch = true
+                            nav.navigate("$PICK_DATES?slot=$slot")
+                        },
+                        onDirectOnly = { form.directOnly(it) },
+                        onBagOnly = { form.bagOnly(it) },
                         onPickTravellers = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_TRAVELLERS) },
                         onApply = { sheetOpen = false; runSearch() },
                     )

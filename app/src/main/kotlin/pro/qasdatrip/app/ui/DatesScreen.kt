@@ -87,6 +87,8 @@ import java.util.Locale
 @Composable
 fun DatesScreen(
     depart: String?,
+    /** Opened from a tap on the return date: aim the first tap at it. */
+    startOnReturn: Boolean = false,
     back: String?,
     roundTrip: Boolean,
     routeSubtitle: String?,
@@ -107,7 +109,7 @@ fun DatesScreen(
     // Which slot the next tap fills. Held rather than derived so that tapping
     // "Retour" can aim the next tap at the return without changing anything
     // else - the one gesture that lets somebody correct half of a range.
-    var filling by rememberSaveable { mutableStateOf(Slot.DEPART) }
+    var filling by rememberSaveable { mutableStateOf(if (startOnReturn) Slot.RETURN else Slot.DEPART) }
     val effective = when {
         !roundTrip -> Slot.DEPART
         departDay == null -> Slot.DEPART
@@ -389,7 +391,7 @@ private fun WeekdayHeader(locale: Locale) {
                     // and Sunday, and a tester who cannot tell the two columns
                     // apart cannot read the grid under them at all.
                     text = day.getDisplayName(TextStyle.SHORT, locale).trimEnd('.'),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = if (day == DayOfWeek.FRIDAY || day == DayOfWeek.SATURDAY) Ink.lineStrong else Ink.muted,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f).padding(vertical = Space.s2),
@@ -415,7 +417,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.monthBlock(
             text = month.atDay(1)
                 .format(DateTimeFormatter.ofPattern("LLLL yyyy", locale))
                 .replaceFirstChar { it.titlecase(locale) },
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = Ink.ink,
             modifier = Modifier
                 .fillMaxWidth()
@@ -467,8 +469,8 @@ private fun MonthGrid(
     }
 }
 
-private val CellHeight = 52.dp
-private val CircleSize = 42.dp
+private val CellHeight = 60.dp
+private val CircleSize = 48.dp
 
 /**
  * One day.
@@ -495,7 +497,6 @@ private fun DayCell(
     modifier: Modifier = Modifier,
     onPick: (LocalDate) -> Unit,
 ) {
-    val words = LocalWords.current
     val isDepart = day == depart
     val isReturn = roundTrip && day == back
     val isEnd = isDepart || isReturn
@@ -540,9 +541,12 @@ private fun DayCell(
         ) {
             Text(
                 text = Money.isolate(day.dayOfMonth.toString()),
+                // 20sp on a 48dp target. The first version was 16sp on 42dp
+                // and testers still called it small; a calendar is read at
+                // arm's length in a queue, not at a desk.
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 16.sp,
-                    fontWeight = if (isEnd) FontWeight.Bold else FontWeight.Normal,
+                    fontSize = 20.sp,
+                    fontWeight = if (isEnd) FontWeight.Bold else FontWeight.Medium,
                 ),
                 color = when {
                     isEnd -> Ink.onSolid
@@ -551,18 +555,6 @@ private fun DayCell(
                     day == today -> Ink.accentDeep
                     else -> Ink.ink
                 },
-            )
-        }
-
-        // Which end this is, in a word. Two filled circles otherwise leave
-        // the reader to work out which one they leave on.
-        if (isEnd) {
-            Text(
-                text = if (isDepart) words.outbound else words.inbound,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                color = Ink.accentDeep,
-                maxLines = 1,
-                modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
     }

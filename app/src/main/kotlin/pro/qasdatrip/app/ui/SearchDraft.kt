@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.time.LocalDate
 import pro.qasdatrip.core.Cabin
+import pro.qasdatrip.core.Filters
 import pro.qasdatrip.core.SearchQuery
 
 /**
@@ -41,8 +42,22 @@ data class SearchDraft(
     val children: Int = 0,
     val infants: Int = 0,
     val cabin: Cabin = Cabin.ECONOMY,
+    /**
+     * The two filters people reach for before they have seen a single
+     * price. They are the same filters as on the results - not a second
+     * system - so a search started with "direct" lands on a list that
+     * already says Direct is on, and turning it off there is one tap.
+     */
+    val directOnly: Boolean = false,
+    val bagOnly: Boolean = false,
 ) {
     val travellers: Int get() = adults + children + infants
+
+    /** What the form's quick filters mean, in the results' own terms. */
+    fun toFilters(): Filters = Filters(
+        maxStops = if (directOnly) 0 else null,
+        bagOnly = bagOnly,
+    )
 
     /**
      * A round trip without a return is half a question: the server would
@@ -99,19 +114,22 @@ class SearchFormViewModel : ViewModel() {
         it.copy(roundTrip = on, back = if (on) it.back else null)
     }
 
+    fun directOnly(on: Boolean) = set { it.copy(directOnly = on) }
+
+    fun bagOnly(on: Boolean) = set { it.copy(bagOnly = on) }
+
     fun travellers(adults: Int, children: Int, infants: Int, cabin: Cabin) = set {
         it.copy(adults = adults, children = children, infants = infants, cabin = cabin)
     }
 
     /**
-     * The same trip, a day either side.
+     * The outbound, a day either side, on its own.
      *
-     * The one control that earns its place on a price-comparison screen:
-     * most of the money on a route is in which day you fly, and asking
-     * somebody to reopen a calendar to find that out is asking most of them
-     * not to bother. A round trip keeps its length - shifting the departure
-     * carries the return with it, so "the same holiday, a day earlier" is
-     * one tap rather than two edits.
+     * The first version carried the return along so the trip kept its
+     * length. Testers found that surprising - they pressed one arrow and
+     * watched two dates move - so each end now moves by itself, and the only
+     * rule is that a return can never sit before its outbound: if the
+     * outbound is pushed past it, the return is pushed to the same day.
      */
     fun shiftDepart(days: Long) = set { d ->
         val depart = d.depart?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@set d
@@ -119,7 +137,8 @@ class SearchFormViewModel : ViewModel() {
         // Never into the past: a search for yesterday has no answer.
         if (moved.isBefore(LocalDate.now())) return@set d
         val back = d.back?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-        d.copy(depart = moved.toString(), back = back?.plusDays(days)?.toString())
+        val keptBack = back?.let { if (it.isBefore(moved)) moved else it }
+        d.copy(depart = moved.toString(), back = keptBack?.toString())
     }
 
     /** The return only, which changes the length of the trip. */
@@ -127,12 +146,14 @@ class SearchFormViewModel : ViewModel() {
         val back = d.back?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@set d
         val depart = d.depart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
         val moved = back.plusDays(days)
-        // A return before the outbound is not a trip.
+        // A return before the outbound is not a trip; stop at the outbound.
         if (depart != null && moved.isBefore(depart)) return@set d
         d.copy(back = moved.toString())
     }
 
-    fun load(query: SearchQuery, keepDates: Boolean) {
-        _draft.value = SearchDraft.of(query, keepDates)
+    fun load(query: SearchQuery, keepDates: Boolean) = set { current ->
+        // A past search fills the route and the passengers; the quick
+        // filters are a preference, not part of the trip, and stay as set.
+        SearchDraft.of(query, keepDates).copy(directOnly = current.directOnly, bagOnly = current.bagOnly)
     }
 }
