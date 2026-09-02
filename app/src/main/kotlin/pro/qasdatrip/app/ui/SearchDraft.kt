@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
 import pro.qasdatrip.core.Cabin
 import pro.qasdatrip.core.SearchQuery
 
@@ -26,7 +27,16 @@ data class SearchDraft(
     val to: String = "CDG",
     val depart: String? = null,
     val back: String? = null,
-    val roundTrip: Boolean = false,
+    /**
+     * A return trip, unless somebody says otherwise.
+     *
+     * It defaulted to one-way, and testers kept arriving at the calendar
+     * having quietly been put in a mode they did not choose - then finding
+     * no way to change it from there. Most people flying out of Algeria are
+     * coming back; the default should be the common trip, and the choice now
+     * also lives on the date screen where it is actually needed.
+     */
+    val roundTrip: Boolean = true,
     val adults: Int = 1,
     val children: Int = 0,
     val infants: Int = 0,
@@ -91,6 +101,35 @@ class SearchFormViewModel : ViewModel() {
 
     fun travellers(adults: Int, children: Int, infants: Int, cabin: Cabin) = set {
         it.copy(adults = adults, children = children, infants = infants, cabin = cabin)
+    }
+
+    /**
+     * The same trip, a day either side.
+     *
+     * The one control that earns its place on a price-comparison screen:
+     * most of the money on a route is in which day you fly, and asking
+     * somebody to reopen a calendar to find that out is asking most of them
+     * not to bother. A round trip keeps its length - shifting the departure
+     * carries the return with it, so "the same holiday, a day earlier" is
+     * one tap rather than two edits.
+     */
+    fun shiftDepart(days: Long) = set { d ->
+        val depart = d.depart?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@set d
+        val moved = depart.plusDays(days)
+        // Never into the past: a search for yesterday has no answer.
+        if (moved.isBefore(LocalDate.now())) return@set d
+        val back = d.back?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        d.copy(depart = moved.toString(), back = back?.plusDays(days)?.toString())
+    }
+
+    /** The return only, which changes the length of the trip. */
+    fun shiftReturn(days: Long) = set { d ->
+        val back = d.back?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return@set d
+        val depart = d.depart?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val moved = back.plusDays(days)
+        // A return before the outbound is not a trip.
+        if (depart != null && moved.isBefore(depart)) return@set d
+        d.copy(back = moved.toString())
     }
 
     fun load(query: SearchQuery, keepDates: Boolean) {
