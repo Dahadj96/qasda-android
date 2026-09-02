@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,7 +60,6 @@ private const val PICK_FROM = "pick-from"
 private const val PICK_TO = "pick-to"
 private const val PICK_DATES = "pick-dates"
 private const val PICK_TRAVELLERS = "pick-travellers"
-private const val REVIEW = "review"
 private const val RESULTS = "results"
 private const val DETAILS = "details"
 private const val CALENDAR = "calendar"
@@ -186,6 +186,12 @@ fun QasdaNavHost(
 
     // The half-finished question, owned above the five pages that fill it in
     // so walking between them cannot lose it.
+    // Set when a picker was opened from the results' edit sheet. Finishing
+    // that picker then re-runs the search and returns to the list, instead
+    // of walking on through the rest of the wizard - somebody editing a
+    // date on a results screen has already answered the other questions.
+    var editingSearch by rememberSaveable { mutableStateOf(false) }
+
     val form: SearchFormViewModel = viewModel()
     val draft by form.draft.collectAsStateWithLifecycle()
 
@@ -400,11 +406,21 @@ fun QasdaNavHost(
         ) {
             // The staged search: home, then one page per answer, then a look
             // at all four before four sites are asked.
+            // Searching ends the wizard rather than adding to it.
+            //
+            // popUpTo(SEARCH) wipes the four half-answered steps, so Back
+            // from the results is the home screen and not a walk backwards
+            // through a search that has already run. launchSingleTop keeps a
+            // re-search from stacking a second copy of the results on top of
+            // the first.
             val runSearch: () -> Unit = {
                 val query = draft.toQuery()
                 onRemember(query)
                 vm.search(query)
-                nav.navigate(RESULTS) { popUpTo(SEARCH) }
+                nav.navigate(RESULTS) {
+                    popUpTo(SEARCH)
+                    launchSingleTop = true
+                }
             }
             composable(SEARCH) {
                 SearchScreen(
@@ -444,10 +460,14 @@ fun QasdaNavHost(
                     onPick = { airport ->
                         form.from(airport.iata)
                         // Forward, not back: the point of a staged flow is
-                        // that answering one question offers the next.
-                        nav.navigate(PICK_TO) { popUpTo(SEARCH) }
+                        // that answering one question offers the next. Unless
+                        // the question came from the results' edit sheet, in
+                        // which case the rest is already answered and the
+                        // only thing left to do is ask again.
+                        if (editingSearch) { editingSearch = false; runSearch() }
+                        else nav.navigate(PICK_TO)
                     },
-                    onBack = { nav.popBackStack() },
+                    onBack = { editingSearch = false; nav.popBackStack() },
                 )
             }
             composable(PICK_TO) {
@@ -457,9 +477,10 @@ fun QasdaNavHost(
                     subtitle = cityName(draft.from, lang),
                     onPick = { airport ->
                         form.to(airport.iata)
-                        nav.navigate(PICK_DATES) { popUpTo(SEARCH) }
+                        if (editingSearch) { editingSearch = false; runSearch() }
+                        else nav.navigate(PICK_DATES)
                     },
-                    onBack = { nav.popBackStack() },
+                    onBack = { editingSearch = false; nav.popBackStack() },
                 )
             }
             composable(PICK_DATES) {
@@ -469,8 +490,12 @@ fun QasdaNavHost(
                     roundTrip = draft.roundTrip,
                     routeSubtitle = routeLine(draft, lang),
                     onPick = { d, b -> form.dates(d, b) },
-                    onConfirm = { nav.navigate(PICK_TRAVELLERS) { popUpTo(SEARCH) } },
-                    onBack = { nav.popBackStack() },
+                    onTripType = { form.roundTrip(it) },
+                    onConfirm = {
+                        if (editingSearch) { editingSearch = false; runSearch() }
+                        else nav.navigate(PICK_TRAVELLERS)
+                    },
+                    onBack = { editingSearch = false; nav.popBackStack() },
                 )
             }
             composable(PICK_TRAVELLERS) {
@@ -479,33 +504,14 @@ fun QasdaNavHost(
                     subtitle = routeLine(draft, lang),
                     onApply = { a, c, i, cabin ->
                         form.travellers(a, c, i, cabin)
-                        nav.navigate(REVIEW) { popUpTo(SEARCH) }
+                        editingSearch = false
+                        runSearch()
                     },
-                    onBack = { nav.popBackStack() },
-                )
-            }
-            composable(
-                REVIEW,
-                // Up from the bottom, because this is now two things: the
-                // last step of a new search, and the edit sheet for one that
-                // has already run. A sheet is the shape that says "change
-                // this and go back", which is what it does in both cases.
-                enterTransition = Motion.sheetEnter,
-                exitTransition = Motion.sheetExit,
-                popEnterTransition = Motion.sheetPopEnter,
-                popExitTransition = Motion.sheetPopExit,
-            ) {
-                ReviewScreen(
-                    draft = draft,
-                    onEditFrom = { nav.navigate(PICK_FROM) },
-                    onEditTo = { nav.navigate(PICK_TO) },
-                    onEditDates = { nav.navigate(PICK_DATES) },
-                    onEditTravellers = { nav.navigate(PICK_TRAVELLERS) },
-                    onSearch = runSearch,
-                    onBack = { nav.popBackStack() },
+                    onBack = { editingSearch = false; nav.popBackStack() },
                 )
             }
             composable(RESULTS) {
+                var sheetOpen by rememberSaveable { mutableStateOf(false) }
                 ResultsScreen(
                     state = state,
                     onOpen = { flight ->
@@ -528,7 +534,7 @@ fun QasdaNavHost(
                     // behind it.
                     onEdit = {
                         state.query?.let { form.load(it, keepDates = true) }
-                        nav.navigate(REVIEW)
+                        sheetOpen = true
                     },
                     onFilters = { vm.filter(it) },
                     onSort = { vm.sortBy(it) },
@@ -543,6 +549,21 @@ fun QasdaNavHost(
                         nav.navigate(TRACK_NEW)
                     },
                 )
+                if (sheetOpen) {
+                    EditSearchSheet(
+                        draft = draft,
+                        onDismiss = { sheetOpen = false },
+                        onRoundTrip = { form.roundTrip(it) },
+                        onSwap = { form.swap() },
+                        onShiftDepart = { form.shiftDepart(it) },
+                        onShiftReturn = { form.shiftReturn(it) },
+                        onPickFrom = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_FROM) },
+                        onPickTo = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_TO) },
+                        onPickDates = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_DATES) },
+                        onPickTravellers = { sheetOpen = false; editingSearch = true; nav.navigate(PICK_TRAVELLERS) },
+                        onApply = { sheetOpen = false; runSearch() },
+                    )
+                }
             }
             // The filters are a page now, not a sheet — see FiltersScreen for
             // why. It reads the unfiltered list so the counts it shows are
