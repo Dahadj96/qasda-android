@@ -48,10 +48,25 @@ data class FlightCalendar(
         get() = cells.firstOrNull { it.rank == RANK_CHEAPEST && it.price != null }
             ?: cells.filter { (it.price ?: 0.0) > 0.0 }.minByOrNull { it.price!! }
 
-    /** Days with a price, in date order - what a one-way strip shows. */
+    /**
+     * One price per departure day, in date order - what the chart draws.
+     *
+     * A one-way calendar has exactly that. A return calendar is a grid, and
+     * the chart used to look only for cells without a return date, find
+     * none, and say there were no prices while the grid beside it was full
+     * of them. For a return trip the day's price is the cheapest of its row:
+     * "leave on the 8th and it costs at least this".
+     */
     val pricedDays: List<CalendarCell>
-        get() = cells.filter { it.returnDate == null && (it.price ?: 0.0) > 0.0 }
-            .sortedBy { it.departDate }
+        get() {
+            val priced = cells.filter { (it.price ?: 0.0) > 0.0 }
+            val perDay = if (roundTrip) {
+                priced.groupBy { it.departDate }.values.mapNotNull { row -> row.minByOrNull { it.price!! } }
+            } else {
+                priced.filter { it.returnDate == null }
+            }
+            return perDay.sortedBy { it.departDate }
+        }
 
     companion object {
         const val RANK_CHEAPEST = "cheapest"

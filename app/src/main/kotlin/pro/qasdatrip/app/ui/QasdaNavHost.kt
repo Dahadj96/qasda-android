@@ -779,7 +779,7 @@ fun QasdaNavHost(
                 }
             }
             composable(HELP) {
-                HelpScreen(onContact = { openUrl(context, "${BuildConfig.API_BASE}/${lang.tag}/") })
+                HelpScreen(onContact = { openUrl(context, BuildConfig.API_BASE + sitePath("contact", lang)) })
             }
             composable(ACCOUNT) {
                 AccountScreen(
@@ -804,6 +804,10 @@ fun QasdaNavHost(
                     originSide = true,
                     step = 0,
                     subtitle = null,
+                    // A setting, not a search: the page asked "where are
+                    // you flying from?" and people opened it from Account
+                    // wondering whether they had started a search by mistake.
+                    title = words.homeAirport,
                     onPick = { airport ->
                         onHomeAirport(airport.iata)
                         form.from(airport.iata)

@@ -159,8 +159,26 @@ private fun schemeFor(p: Palette, dark: Boolean) = if (dark) {
         onSurface = p.ink,
         surfaceVariant = p.surfaceSoft,
         onSurfaceVariant = p.inkSoft,
+        // The container roles too. Menus, sheets and dialogs draw on these,
+        // and Material's defaults for them are a lilac tint from the
+        // baseline purple seed - which is how the sort menu came out mauve
+        // on an app with no purple anywhere in it.
+        surfaceContainerLowest = p.surface,
+        surfaceContainerLow = p.surface,
+        surfaceContainer = p.surface,
+        surfaceContainerHigh = p.surfaceSoft,
+        surfaceContainerHighest = p.surfaceSoft,
+        surfaceTint = p.surface,
         outline = p.line,
+        outlineVariant = p.line,
         error = p.alert,
+        onError = p.onSolid,
+        tertiary = p.notice,
+        onTertiary = p.onSolid,
+        primaryContainer = p.accentSoft,
+        onPrimaryContainer = p.accentDeep,
+        secondaryContainer = p.accentSoft,
+        onSecondaryContainer = p.accentDeep,
     )
 } else {
     lightColorScheme(
@@ -174,8 +192,26 @@ private fun schemeFor(p: Palette, dark: Boolean) = if (dark) {
         onSurface = p.ink,
         surfaceVariant = p.surfaceSoft,
         onSurfaceVariant = p.inkSoft,
+        // The container roles too. Menus, sheets and dialogs draw on these,
+        // and Material's defaults for them are a lilac tint from the
+        // baseline purple seed - which is how the sort menu came out mauve
+        // on an app with no purple anywhere in it.
+        surfaceContainerLowest = p.surface,
+        surfaceContainerLow = p.surface,
+        surfaceContainer = p.surface,
+        surfaceContainerHigh = p.surfaceSoft,
+        surfaceContainerHighest = p.surfaceSoft,
+        surfaceTint = p.surface,
         outline = p.line,
+        outlineVariant = p.line,
         error = p.alert,
+        onError = p.onSolid,
+        tertiary = p.notice,
+        onTertiary = p.onSolid,
+        primaryContainer = p.accentSoft,
+        onPrimaryContainer = p.accentDeep,
+        secondaryContainer = p.accentSoft,
+        onSecondaryContainer = p.accentDeep,
     )
 }
 

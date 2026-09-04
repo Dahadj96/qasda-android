@@ -174,11 +174,3 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
  * script, so a link survives being pasted into WhatsApp. The app has to use
  * the same ones or it links to a page that is not there.
  */
-private fun sitePath(page: String, lang: Lang): String {
-    val slug = when (page) {
-        "how" -> mapOf(Lang.FR to "comment-ca-marche", Lang.AR to "kayf-yaamal", Lang.EN to "how-it-works")
-        "about" -> mapOf(Lang.FR to "a-propos", Lang.AR to "man-nahnu", Lang.EN to "about")
-        else -> mapOf(Lang.FR to "confidentialite", Lang.AR to "khususiya", Lang.EN to "privacy")
-    }
-    return "/${lang.tag}/${slug[lang]}"
-}
