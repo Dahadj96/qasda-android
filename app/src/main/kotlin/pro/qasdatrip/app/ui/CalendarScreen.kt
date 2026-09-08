@@ -575,7 +575,9 @@ private fun PriceChart(
                 modifier = Modifier
                     .width(44.dp)
                     .clip(RoundedCornerShape(Radius.sm))
-                    .clickable { onPick(day.departDate, null) }
+                    // On a return trip the bar is the cheapest pairing for
+                    // that departure, and carries its return date with it.
+                    .clickable { onPick(day.departDate, day.returnDate) }
                     .padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),

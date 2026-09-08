@@ -15,6 +15,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -450,8 +452,15 @@ private fun ControlsRow(
     // already offers, drawn in a different shape, so the same question had
     // two answers on one screen and neither showed the other's state. The
     // page is one tap away and shows all of them at once.
+    //
+    // Four now, and the row scrolls: the two quick filters on the search
+    // form - Direct and a checked bag - are these same two switches, so a
+    // search started with one of them lands here already showing it on.
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.s4),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = Space.s4),
         horizontalArrangement = Arrangement.spacedBy(Space.s2),
     ) {
         ToolButton(
@@ -460,14 +469,6 @@ private fun ControlsRow(
             icon = R.drawable.ic_sliders,
             on = !filters.isEmpty,
             onClick = onOpenFilters,
-            modifier = Modifier.weight(1f),
-        )
-        ToolButton(
-            label = words.calendarTab,
-            icon = R.drawable.ic_calendar,
-            on = false,
-            onClick = onCalendar,
-            modifier = Modifier.weight(1f),
         )
         // Direct, in the third slot, because it was the one filter people
         // reach for on every search and it was two taps deep.
@@ -485,7 +486,21 @@ private fun ControlsRow(
                 haptics.play(if (direct) Feedback.ToggleOff else Feedback.ToggleOn)
                 onFilters(filters.copy(maxStops = if (direct) null else 0))
             },
-            modifier = Modifier.weight(1f),
+        )
+        ToolButton(
+            label = words.checkedBag,
+            icon = R.drawable.ic_bag_checked,
+            on = filters.bagOnly,
+            onClick = {
+                haptics.play(if (filters.bagOnly) Feedback.ToggleOff else Feedback.ToggleOn)
+                onFilters(filters.copy(bagOnly = !filters.bagOnly))
+            },
+        )
+        ToolButton(
+            label = words.calendarTab,
+            icon = R.drawable.ic_calendar,
+            on = false,
+            onClick = onCalendar,
         )
     }
 }
@@ -506,7 +521,7 @@ private fun ToolButton(
             .background(if (on) Ink.accentSoft else Ink.surface)
             .border(1.dp, if (on) Ink.accentUi else Ink.lineStrong, RoundedCornerShape(Radius.md))
             .clickable(onClick = onClick)
-            .padding(horizontal = Space.s2),
+            .padding(horizontal = Space.s3),
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {

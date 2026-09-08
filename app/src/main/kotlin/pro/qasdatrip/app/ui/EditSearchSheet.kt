@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import pro.qasdatrip.app.R
@@ -47,19 +48,18 @@ import pro.qasdatrip.app.ui.theme.Space
  *
  * The pencil on the results used to walk somebody back to the front of the
  * app, past the prices they were reading. This is what it opens instead: a
- * sheet over the results, with the list still visible behind it, holding the
- * three edits people actually make on a results screen.
+ * sheet over the results, with the list still visible behind it, holding
+ * the edits people actually make on a results screen.
  *
- * The day steppers are the reason it exists. On a route out of Algiers most
+ * The date tiles are the reason it exists. On a route out of Algiers most
  * of the difference in price is which day you fly, and the old app made
- * finding that out a five-page round trip through a calendar. A tap either
- * side of the date is the whole gesture now, and on a return trip the
- * outbound stepper carries the return with it so the length of the holiday
- * is preserved - "the same trip, a day earlier" rather than two separate
- * edits that have to agree.
+ * finding that out a five-page round trip through a calendar. Each date has
+ * its own pair of arrows and moves on its own - the first version moved the
+ * pair together and testers found that baffling - and the date itself opens
+ * the calendar aimed at that end for anyone going further than a day.
  *
- * Everything here applies to the search in place. Nothing on this sheet
- * navigates except the rows that genuinely need a page of their own.
+ * The two quick filters are the same switches as on the search form and on
+ * the results, so the sheet opens showing what the list is showing.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,8 +72,11 @@ fun EditSearchSheet(
     onShiftReturn: (Long) -> Unit,
     onPickFrom: () -> Unit,
     onPickTo: () -> Unit,
-    onPickDates: () -> Unit,
+    /** "depart" or "return": which end the calendar should open aimed at. */
+    onPickDates: (slot: String) -> Unit,
     onPickTravellers: () -> Unit,
+    onDirectOnly: (Boolean) -> Unit,
+    onBagOnly: (Boolean) -> Unit,
     onApply: () -> Unit,
 ) {
     val words = LocalWords.current
@@ -154,23 +157,40 @@ fun EditSearchSheet(
 
             TripToggleRow(roundTrip = draft.roundTrip, onChange = onRoundTrip)
 
-            // A day either side, which is where the money is.
-            DayStepper(
-                label = words.outbound,
-                value = draft.depart?.let { formatDate(it, lang) } ?: words.chooseDates,
-                onEarlier = { onShiftDepart(-1) },
-                onLater = { onShiftDepart(1) },
-                enabled = draft.depart != null,
-            )
-            if (draft.roundTrip) {
-                DayStepper(
-                    label = words.inbound,
-                    value = draft.back?.let { formatDate(it, lang) } ?: words.pickReturn,
-                    onEarlier = { onShiftReturn(-1) },
-                    onLater = { onShiftReturn(1) },
-                    enabled = draft.back != null,
+            // One tile per date. The arrows move that date and only that
+            // date - the first version moved the pair together and testers
+            // pressed one arrow and watched two dates change. The date
+            // itself is a button: it opens the calendar aimed at this end,
+            // for anyone who wants to go further than a day.
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.s2)) {
+                DateTile(
+                    label = words.outbound,
+                    value = draft.depart?.let { formatDate(it, lang) } ?: words.chooseDates,
+                    enabled = draft.depart != null,
+                    onEarlier = { onShiftDepart(-1) },
+                    onLater = { onShiftDepart(1) },
+                    onOpen = { onPickDates("depart") },
+                    modifier = Modifier.weight(1f),
                 )
+                if (draft.roundTrip) {
+                    DateTile(
+                        label = words.inbound,
+                        value = draft.back?.let { formatDate(it, lang) } ?: words.pickReturn,
+                        enabled = draft.back != null,
+                        onEarlier = { onShiftReturn(-1) },
+                        onLater = { onShiftReturn(1) },
+                        onOpen = { onPickDates("return") },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
+
+            QuickFilters(
+                directOnly = draft.directOnly,
+                bagOnly = draft.bagOnly,
+                onDirectOnly = onDirectOnly,
+                onBagOnly = onBagOnly,
+            )
 
             Column(
                 modifier = Modifier
@@ -179,15 +199,6 @@ fun EditSearchSheet(
                     .background(Ink.surfaceSoft)
                     .border(1.dp, Ink.line, RoundedCornerShape(Radius.md)),
             ) {
-                PlaceRow(
-                    words.dates,
-                    listOfNotNull(
-                        draft.depart?.let { formatDate(it, lang) },
-                        draft.back?.takeIf { draft.roundTrip }?.let { formatDate(it, lang) },
-                    ).joinToString(" – ").ifBlank { words.chooseDates },
-                    onPickDates,
-                )
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Ink.line))
                 PlaceRow(words.travellers, travellersLabel(draft, words), onPickTravellers)
             }
 
@@ -273,44 +284,58 @@ private fun TripToggleRow(roundTrip: Boolean, onChange: (Boolean) -> Unit) {
     }
 }
 
-/** One day either side of a date, without opening anything. */
+/**
+ * One date: a label, the day between two arrows, and the day itself a
+ * button that opens the calendar aimed at this end.
+ */
 @Composable
-private fun DayStepper(
+private fun DateTile(
     label: String,
     value: String,
     enabled: Boolean,
     onEarlier: () -> Unit,
     onLater: () -> Unit,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
+    Column(
+        modifier = modifier
             .clip(RoundedCornerShape(Radius.md))
             .background(Ink.surfaceSoft)
             .border(1.dp, Ink.line, RoundedCornerShape(Radius.md))
             .padding(horizontal = Space.s2, vertical = Space.s2),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        StepArrow(forward = false, enabled = enabled) {
-            haptics.play(Feedback.Selection)
-            onEarlier()
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Text(label, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = Ink.muted)
-            Text(
-                value,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (enabled) Ink.ink else Ink.muted,
-                maxLines = 1,
-            )
-        }
-        StepArrow(forward = true, enabled = enabled) {
-            haptics.play(Feedback.Selection)
-            onLater()
+            StepArrow(forward = false, enabled = enabled) {
+                haptics.play(Feedback.Selection)
+                onEarlier()
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(Radius.sm))
+                    .clickable(onClick = onOpen),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (enabled) Ink.accentDeep else Ink.muted,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            StepArrow(forward = true, enabled = enabled) {
+                haptics.play(Feedback.Selection)
+                onLater()
+            }
         }
     }
 }
@@ -319,7 +344,7 @@ private fun DayStepper(
 private fun StepArrow(forward: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .background(Ink.canvas)
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),

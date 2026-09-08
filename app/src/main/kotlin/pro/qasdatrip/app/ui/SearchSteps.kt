@@ -118,6 +118,8 @@ fun AirportStepScreen(
     subtitle: String?,
     onPick: (Airport) -> Unit,
     onBack: () -> Unit,
+    /** The question at the top; the search's own when not given. */
+    title: String? = null,
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
@@ -128,7 +130,7 @@ fun AirportStepScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         StepHeader(
-            title = if (originSide) words.fromQuestion else words.toQuestion,
+            title = title ?: if (originSide) words.fromQuestion else words.toQuestion,
             step = step,
             subtitle = subtitle,
             onBack = onBack,

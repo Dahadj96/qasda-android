@@ -178,7 +178,7 @@ fun AccountScreen(
                 HairLine()
                 RowLink(title = words.privacy, onClick = { onOpen(sitePath("privacy", lang)) })
                 HairLine()
-                RowLink(title = words.contactUs, onClick = { onOpen("/${lang.tag}/") })
+                RowLink(title = words.contactUs, onClick = { onOpen(sitePath("contact", lang)) })
             }
         }
 
@@ -205,13 +205,6 @@ private fun nameOfLang(lang: Lang?): String? = when (lang) {
  * Arabic script so a link survives being pasted into WhatsApp. The app has
  * to use the same ones or it links to a 404.
  */
-private fun sitePath(page: String, lang: Lang): String {
-    val slug = when (page) {
-        "how" -> mapOf(Lang.FR to "comment-ca-marche", Lang.AR to "kayf-yaamal", Lang.EN to "how-it-works")
-        else -> mapOf(Lang.FR to "confidentialite", Lang.AR to "khususiya", Lang.EN to "privacy")
-    }
-    return "/${lang.tag}/${slug[lang]}"
-}
 
 @Composable
 private fun GroupLabel(text: String) {

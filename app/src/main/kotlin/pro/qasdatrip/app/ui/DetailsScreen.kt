@@ -388,17 +388,22 @@ private fun LegCard(leg: Leg, label: String?) {
             Endpoint(time = leg.arrival, iata = leg.destination, lang = lang, leg = leg)
         }
 
-        Hairline()
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(Space.s4),
-            horizontalArrangement = Arrangement.spacedBy(Space.s2),
-        ) {
-            Text(
-                listOfNotNull(leg.duration?.let(Money::isolate), stopsText(leg.stopCount, words))
-                    .joinToString(" · "),
-                style = MaterialTheme.typography.labelMedium,
-                color = Ink.inkSoft,
-            )
+        // The total, under a leg with more than one flight in it. A direct
+        // leg already said "2h 40m · Direct" in the band between its two
+        // times, and saying it again underneath read as a mistake.
+        if (hops.size > 1) {
+            Hairline()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(Space.s4),
+                horizontalArrangement = Arrangement.spacedBy(Space.s2),
+            ) {
+                Text(
+                    listOfNotNull(leg.duration?.let(Money::isolate), stopsText(leg.stopCount, words))
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Ink.inkSoft,
+                )
+            }
         }
     }
 }

@@ -80,6 +80,8 @@ fun SearchScreen(
     onPickTo: () -> Unit,
     onPickDates: () -> Unit,
     onPickTravellers: () -> Unit,
+    onDirectOnly: (Boolean) -> Unit = {},
+    onBagOnly: (Boolean) -> Unit = {},
     onSearch: () -> Unit,
     onRecent: (SearchQuery) -> Unit,
     onLanguage: () -> Unit = {},
@@ -108,6 +110,8 @@ fun SearchScreen(
                 onPickTo = onPickTo,
                 onPickDates = onPickDates,
                 onPickTravellers = onPickTravellers,
+                onDirectOnly = onDirectOnly,
+                onBagOnly = onBagOnly,
                 modifier = Modifier.padding(
                     top = CARD_TOP,
                     start = Space.s4,
@@ -304,6 +308,8 @@ private fun SearchCard(
     onPickTo: () -> Unit,
     onPickDates: () -> Unit,
     onPickTravellers: () -> Unit,
+    onDirectOnly: (Boolean) -> Unit,
+    onBagOnly: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val words = LocalWords.current
@@ -384,6 +390,18 @@ private fun SearchCard(
                 onClick = onPickTravellers,
             )
         }
+
+        Spacer(modifier = Modifier.height(Space.s2))
+
+        // The two things people want to say before they see a price. Set
+        // here, they arrive on the results already switched on, where the
+        // same two controls turn them off again.
+        QuickFilters(
+            directOnly = draft.directOnly,
+            bagOnly = draft.bagOnly,
+            onDirectOnly = onDirectOnly,
+            onBagOnly = onBagOnly,
+        )
     }
 }
 
