@@ -1,5 +1,12 @@
 package pro.qasdatrip.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -84,6 +91,13 @@ fun TrackScreen(
     onDone: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        // Tracking still starts if permission was refused. The Settings page
+        // explains how to enable delivery later, and the watch must not be
+        // lost merely because a system dialog was dismissed.
+        onTrack(seenPrice)
+    }
     val words = LocalWords.current
     val lang = LocalLang.current
     val soldOut = seenPrice == null
@@ -249,7 +263,12 @@ fun TrackScreen(
         ) {
             val sending = state.stage == TrackingViewModel.Stage.SENDING
             Button(
-                onClick = { onTrack(seenPrice) },
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= 33 &&
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                    ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else onTrack(seenPrice)
+                },
                 enabled = !sending,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(Radius.pill),

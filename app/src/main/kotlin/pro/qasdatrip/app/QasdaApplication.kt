@@ -15,6 +15,7 @@ class QasdaApplication : Application() {
         // 213 airports, shipped with the app: on a phone this is an asset, not
         // a download, and everything Algeria flies is in it.
         Airports.load(assets.open("airports.json").bufferedReader().use { it.readText() })
+        QasdaMessagingService.ensureChannels(this)
         api = QasdaApi(
             baseUrl = BuildConfig.API_BASE,
             apiKey = BuildConfig.API_KEY,
