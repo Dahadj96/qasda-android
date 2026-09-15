@@ -70,6 +70,7 @@ fun TrackingScreen(
     onStop: (Long) -> Unit,
     onNew: () -> Unit,
     onNotifications: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
@@ -125,6 +126,9 @@ fun TrackingScreen(
                 )
             }
 
+            if (state.hasMore) item {
+                Button(onClick = onLoadMore, enabled = !state.loading) { Text(when (lang) { pro.qasdatrip.core.Lang.AR -> "عرض المزيد"; pro.qasdatrip.core.Lang.EN -> "Load more"; else -> "Afficher plus" }) }
+            }
             if (state.watches.isEmpty() && !state.loading) {
                 item {
                     Column(

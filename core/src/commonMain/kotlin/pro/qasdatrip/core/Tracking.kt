@@ -40,6 +40,11 @@ data class Watch(
     @SerialName("last_notified_at") val lastNotifiedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("tracking_ends_at") val trackingEndsAt: String? = null,
+    val active: Boolean = true,
+    @SerialName("tracker_state") val trackerState: String? = null,
+    @SerialName("last_checked_at") val lastCheckedAt: String? = null,
+    @SerialName("last_attempt_at") val lastAttemptAt: String? = null,
+    @SerialName("next_check_at") val nextCheckAt: String? = null,
 ) {
     val roundTrip: Boolean get() = !returnDate.isNullOrBlank()
 

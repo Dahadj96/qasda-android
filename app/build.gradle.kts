@@ -58,12 +58,14 @@ android {
         applicationId = "pro.qasdatrip.app"
         minSdk = 26              // Android 8. Below that is under 3% of Algerian devices.
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         // The same app-level key the web bundle carries. Not a user secret —
         // it identifies the client, and the server treats it that way.
         buildConfigField("String", "API_BASE", "\"https://qasdatrip.pro\"")
         buildConfigField("String", "API_KEY", "\"${qasdaKey("QASDA_API_KEY_PROD")}\"")
+        // Public OAuth client ID, not a secret. Set after enabling Google auth.
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProps.getProperty("QASDA_GOOGLE_WEB_CLIENT_ID") ?: System.getenv("QASDA_GOOGLE_WEB_CLIENT_ID") ?: "917623534436-skkt7j0inhidudnderaao6j7idrc1p1p.apps.googleusercontent.com"}\"")
     }
 
     signingConfigs {
@@ -158,5 +160,10 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play)
+    implementation(libs.google.identity)
+    implementation(libs.coroutines.play.services)
     testImplementation(libs.junit)
 }

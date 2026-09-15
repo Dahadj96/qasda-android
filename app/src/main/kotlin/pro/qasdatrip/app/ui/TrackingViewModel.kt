@@ -36,6 +36,7 @@ class TrackingViewModel(
     private val readDevice: () -> DeviceKey? = { null },
     private val writeDevice: (DeviceKey?) -> Unit = {},
     private val locale: () -> String = { "fr" },
+    private val signedIn: () -> Boolean = { false },
 ) : ViewModel() {
 
     /** Where the create form is in its short life. */
@@ -47,6 +48,9 @@ class TrackingViewModel(
         /** Nothing can be watched until the install has an identity. */
         val registering: Boolean = false,
         val watches: List<Watch> = emptyList(),
+        val history: List<Watch> = emptyList(),
+        val hasMore: Boolean = false,
+        val historyHasMore: Boolean = false,
         val loading: Boolean = false,
         /** The link was refused: it is stale, tampered with, or the secret rotated. */
         val keyRejected: Boolean = false,
@@ -110,15 +114,20 @@ class TrackingViewModel(
      * listed here, and this is a handful of rows behind a signed link.
      */
     fun refresh() {
-        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
+        val key = _state.value.device?.asManageKey() ?: _state.value.key
+        if (!signedIn() && key == null) return
         listJob?.cancel()
         _state.update { it.copy(loading = true) }
         listJob = viewModelScope.launch {
-            val rows = api.watches(key)
+            val rows = if (signedIn()) api.accountWatches("active") else key?.let { api.watches(it) }
+            val history = if (signedIn()) api.accountWatches("history") else emptyList()
             _state.update {
                 it.copy(
                     loading = false,
-                    watches = rows.orEmpty(),
+                    watches = rows.orEmpty().filter { it.active },
+                    history = history.orEmpty(),
+                    hasMore = signedIn() && rows?.size == 50,
+                    historyHasMore = signedIn() && history?.size == 50,
                     // Null is the server refusing the link, which is different
                     // from an empty list. Only the first should offer to take
                     // a new one.
@@ -158,6 +167,7 @@ class TrackingViewModel(
      * that means "we have emailed you". It either exists now or it does not.
      */
     fun track(query: SearchQuery, seenPrice: Double?) {
+        if (!signedIn()) { _state.update { it.copy(stage = Stage.FAILED) }; return }
         val device = _state.value.device
         if (device == null) {
             // No identity yet: try once more, and let the screen stay on its
@@ -168,8 +178,8 @@ class TrackingViewModel(
         }
         _state.update { it.copy(stage = Stage.SENDING) }
         viewModelScope.launch {
-            val result = api.trackRoute(device, query, seenPrice, locale())
-            if (result?.created == true) {
+            val created = api.trackAccountRoute(query, seenPrice)
+            if (created) {
                 _state.update { it.copy(stage = Stage.SENT, needsConfirmation = false) }
                 refresh()
             } else {
@@ -184,9 +194,10 @@ class TrackingViewModel(
     }
 
     fun stop(watchId: Long) {
-        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
+        val key = _state.value.device?.asManageKey() ?: _state.value.key
+        if (!signedIn() && key == null) return
         viewModelScope.launch {
-            if (api.cancelWatch(key, watchId)) {
+            if (if (signedIn()) api.cancelAccountWatch(watchId) else key?.let { api.cancelWatch(it, watchId) } == true) {
                 // Drop it locally rather than re-listing: the server has
                 // already said it is gone, and a round trip here is a list
                 // that flickers.
@@ -205,12 +216,13 @@ class TrackingViewModel(
      * shows exactly what actually stopped.
      */
     fun stopAll() {
-        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
+        val key = _state.value.device?.asManageKey() ?: _state.value.key
+        if (!signedIn() && key == null) return
         val ids = _state.value.watches.map { it.id }
         if (ids.isEmpty()) return
         viewModelScope.launch {
             for (id in ids) {
-                if (api.cancelWatch(key, id)) {
+                if (if (signedIn()) api.cancelAccountWatch(id) else key?.let { api.cancelWatch(it, id) } == true) {
                     _state.update { s -> s.copy(watches = s.watches.filterNot { it.id == id }) }
                 }
             }
@@ -225,11 +237,12 @@ class TrackingViewModel(
      * can, not the first time it happens to be launched afterwards.
      */
     fun loadAlerts() {
-        val key = _state.value.device?.asManageKey() ?: _state.value.key ?: return
+        val key = _state.value.device?.asManageKey() ?: _state.value.key
+        if (!signedIn() && key == null) return
         alertsJob?.cancel()
         _state.update { it.copy(alertsLoading = true) }
         alertsJob = viewModelScope.launch {
-            val rows = api.alerts(key)
+            val rows = if (signedIn()) api.accountAlerts() else key?.let { api.alerts(it) }
             _state.update { it.copy(alerts = rows.orEmpty(), alertsLoading = false) }
         }
     }
@@ -253,5 +266,22 @@ class TrackingViewModel(
     fun closeWatch() {
         trendJob?.cancel()
         _state.update { it.copy(openWatch = null, trend = null, trendLoading = false) }
+    }
+
+    fun accountChanged() {
+        listJob?.cancel(); alertsJob?.cancel(); trendJob?.cancel()
+        _state.update { it.copy(watches = emptyList(), history = emptyList(), hasMore = false, historyHasMore = false, alerts = emptyList(), openWatch = null, trend = null, stage = Stage.EDITING) }
+        refresh()
+    }
+    fun restart(watchId: Long) { viewModelScope.launch { if (api.restartAccountWatch(watchId)) refresh() } }
+    fun loadMore(history: Boolean = false) {
+        if (!signedIn() || _state.value.loading) return
+        _state.update { it.copy(loading = true) }
+        listJob = viewModelScope.launch {
+            val old = if (history) _state.value.history else _state.value.watches
+            val rows = api.accountWatches(if (history) "history" else "active", old.size)
+            _state.update { if (history) it.copy(history = (old + rows.orEmpty()).distinctBy { watch -> watch.id }, historyHasMore = rows?.size == 50, loading = false)
+                else it.copy(watches = (old + rows.orEmpty()).distinctBy { watch -> watch.id }, hasMore = rows?.size == 50, loading = false) }
+        }
     }
 }

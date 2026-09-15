@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.launch
 import pro.qasdatrip.app.data.Settings
+import pro.qasdatrip.app.data.NotificationDiagnostics
 import pro.qasdatrip.app.data.onlineFlow
 import pro.qasdatrip.app.ui.AlertPrefs
 import pro.qasdatrip.app.ui.LocalHaptics
@@ -197,6 +198,15 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+    }
+    override fun onResume() {
+        super.onResume()
+        val app = application as QasdaApplication
+        intent.getStringExtra("qasda_delivery_id")?.let {
+            NotificationDiagnostics.enqueue(app, it, "opened")
+            intent.removeExtra("qasda_delivery_id")
+        }
+        lifecycleScope.launch { runCatching { NotificationDiagnostics.flush(app, Settings(this@MainActivity)) } }
     }
 }
 

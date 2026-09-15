@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import pro.qasdatrip.app.data.Settings
+import pro.qasdatrip.app.data.NotificationDiagnostics
 
 class QasdaMessagingService : FirebaseMessagingService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -32,14 +33,22 @@ class QasdaMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
         val kind = data["kind"] ?: return
+        val app = application as QasdaApplication
+        if (data["userId"] != null && data["userId"] != app.account.serverUserId) return
+        NotificationDiagnostics.enqueue(app, data["deliveryId"], "received")
         val settings = Settings(this)
         val enabled = when (kind) {
             "seat" -> settings.alertSeats
             "price" -> settings.alertDrops
             "ended" -> settings.alertEnded
+            "test" -> true
             else -> false
         }
-        if (!enabled || !notificationsAllowed()) return
+        if (!enabled || !notificationsAllowed() || !NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            NotificationDiagnostics.enqueue(app, data["deliveryId"], "blocked")
+            scope.launch { runCatching { NotificationDiagnostics.flush(app, settings) } }
+            return
+        }
 
         val channel = when (kind) {
             "seat" -> CHANNEL_AVAILABILITY
@@ -47,17 +56,25 @@ class QasdaMessagingService : FirebaseMessagingService() {
             else -> CHANNEL_UPDATES
         }
         ensureChannels(this)
+        if (getSystemService(NotificationManager::class.java).getNotificationChannel(channel)?.importance == NotificationManager.IMPORTANCE_NONE) {
+            NotificationDiagnostics.enqueue(app, data["deliveryId"], "blocked")
+            scope.launch { runCatching { NotificationDiagnostics.flush(app, settings) } }
+            return
+        }
         val from = data["origin"].orEmpty()
         val to = data["destination"].orEmpty()
         val date = data["departDate"].orEmpty()
-        val uri = Uri.parse("${BuildConfig.API_BASE}/fr/vols/$from/$to/$date")
+        // The inbox retains the exact itinerary and completed/expired tracker.
+        // Test and expiry messages do not necessarily contain a searchable route.
+        val uri = Uri.parse("${BuildConfig.API_BASE}/notifications")
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
             this.data = uri
+            putExtra("qasda_delivery_id", data["deliveryId"])
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
         val pending = PendingIntent.getActivity(
-            this, (from + to + date + kind).hashCode(), intent,
+            this, (data["notificationId"] ?: (from + to + date + kind)).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val title = data["title"] ?: message.notification?.title ?: getString(R.string.app_name)
@@ -71,7 +88,9 @@ class QasdaMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
             .build()
-        NotificationManagerCompat.from(this).notify(message.messageId?.hashCode() ?: System.nanoTime().toInt(), notification)
+        NotificationManagerCompat.from(this).notify(data["notificationId"]?.hashCode() ?: message.messageId?.hashCode() ?: System.nanoTime().toInt(), notification)
+        NotificationDiagnostics.enqueue(app, data["deliveryId"], "display_requested")
+        scope.launch { runCatching { NotificationDiagnostics.flush(app, settings) } }
     }
 
     private fun notificationsAllowed(): Boolean =

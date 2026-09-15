@@ -65,6 +65,7 @@ fun AccountScreen(
     onHomeAirport: () -> Unit = {},
     onAbout: () -> Unit,
     onOpen: (path: String) -> Unit,
+    identityPanel: @Composable () -> Unit = {},
 ) {
     val words = LocalWords.current
 
@@ -85,6 +86,7 @@ fun AccountScreen(
             )
         }
 
+        item { identityPanel() }
         item {
             Column(
                 modifier = Modifier
