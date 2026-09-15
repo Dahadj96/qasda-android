@@ -1,5 +1,8 @@
 package pro.qasdatrip.app.ui
 
+import android.content.Intent
+import android.provider.Settings
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,11 +28,21 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
 import pro.qasdatrip.app.ui.theme.Radius
@@ -70,6 +83,33 @@ fun SettingsScreen(
     onThemeMode: (ThemeMode) -> Unit = {},
 ) {
     val words = LocalWords.current
+    val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current
+    var notificationsAllowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsAllowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        }
+        lifecycle.lifecycle.addObserver(observer)
+        onDispose { lifecycle.lifecycle.removeObserver(observer) }
+    }
+    val openNotificationSettings = {
+        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        })
+    }
+    val notificationStatus = when (effective) {
+        Lang.FR -> if (notificationsAllowed) "Autorisées · Son et vibration gérés par Android" else "Bloquées · Activez-les dans Android"
+        Lang.EN -> if (notificationsAllowed) "Allowed · Sound and vibration are managed by Android" else "Blocked · Enable them in Android"
+        Lang.AR -> if (notificationsAllowed) "مسموح بها · يتحكم Android في الصوت والاهتزاز" else "متوقفة · فعّلها من إعدادات Android"
+    }
+    val systemSettings = when (effective) {
+        Lang.FR -> "Réglages Android des notifications"
+        Lang.EN -> "Android notification settings"
+        Lang.AR -> "إعدادات إشعارات Android"
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -101,6 +141,8 @@ fun SettingsScreen(
         item { Label(words.notificationsTitle) }
         item {
             Group {
+                Action(systemSettings, notificationStatus, true, onClick = openNotificationSettings)
+                Divider()
                 Toggle(words.prefDrops, words.prefDropsSub, alertDrops, onAlertDrops)
                 Divider()
                 Toggle(words.prefSeats, words.prefSeatsSub, alertSeats, onAlertSeats)
