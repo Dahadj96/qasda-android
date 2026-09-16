@@ -12,12 +12,22 @@
           "package_name": "pro.qasdatrip.app"
         }
       },
+      "oauth_client": [
+        {
+          "client_id": "917623534436-015pqte0uastpf149nh7sopqlv1dfdil.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": { "package_name": "pro.qasdatrip.app", "certificate_hash": "deef21bcc122b363a6d01979c41a79bc9ddd64bc" }
+        },
+        { "client_id": "917623534436-skkt7j0inhidudnderaao6j7idrc1p1p.apps.googleusercontent.com", "client_type": 3 }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB7f9Ba3uAnLpXo68SzGpHQXtc4Tj6JPsI"
         }
       ],
-      "services": {}
+      "services": { "appinvite_service": { "other_platform_oauth_client": [
+        { "client_id": "917623534436-skkt7j0inhidudnderaao6j7idrc1p1p.apps.googleusercontent.com", "client_type": 3 }
+      ] } }
     }
   ],
   "configuration_version": "1"

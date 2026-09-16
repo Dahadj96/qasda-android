@@ -46,11 +46,8 @@ import pro.qasdatrip.core.Money
  * theirs. So the tab is Compte, it opens on what this install actually
  * holds, and Réglages is one row inside it.
  *
- * There is no sign-in, and this screen says so in the first sentence rather
- * than offering a button that leads to one. Nothing here needs an account:
- * the searches, the tracking and the preferences live on the device, and
- * asking for an address to keep them would be asking for something we do
- * not need.
+ * Google identity now owns saved searches, tracking and delivery history.
+ * The identity panel is deliberately first; preferences remain below it.
  */
 @Composable
 fun AccountScreen(
