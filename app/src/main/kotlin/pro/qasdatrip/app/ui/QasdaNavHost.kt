@@ -44,6 +44,7 @@ import androidx.navigation.navDeepLink
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import pro.qasdatrip.app.BuildConfig
+import pro.qasdatrip.app.QasdaApplication
 import pro.qasdatrip.app.R
 import pro.qasdatrip.app.ui.theme.Ink
 import pro.qasdatrip.app.ui.theme.LocalWords
@@ -148,6 +149,8 @@ fun QasdaNavHost(
 ) {
     val nav = rememberNavController()
     val context = LocalContext.current
+    val googleAccount = (context.applicationContext as QasdaApplication).account
+    val googleUser by googleAccount.user.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val words = LocalWords.current
 
@@ -213,9 +216,15 @@ fun QasdaNavHost(
                 readDevice = readDevice,
                 writeDevice = onDeviceKey,
                 locale = { lang.tag },
+                signedIn = { googleAccount.signedIn },
             ) as T
     })
     val trackState by tracking.state.collectAsStateWithLifecycle()
+    LaunchedEffect(googleUser?.uid) { tracking.accountChanged() }
+    LaunchedEffect(googleUser?.uid, trackState.device) {
+        val key = trackState.device
+        if (googleUser != null && key != null) api.linkAccountDevice(key)
+    }
 
 
     // Which offer, on which site, is being handed over. Held here rather
@@ -679,6 +688,7 @@ fun QasdaNavHost(
                 TrackingScreen(
                     state = trackState,
                     onNotifications = { nav.navigate(NOTIFICATIONS) },
+                    onLoadMore = { tracking.loadMore() },
                     onOpen = { watch ->
                         tracking.open(watch)
                         nav.navigate(TRACK_HISTORY)
@@ -690,7 +700,9 @@ fun QasdaNavHost(
                     },
                 )
             }
-            composable(NOTIFICATIONS) {
+            composable(NOTIFICATIONS, deepLinks = ManageHosts.map { host ->
+                navDeepLink { uriPattern = "https://$host/notifications" }
+            }) {
                 NotificationsScreen(
                     state = trackState,
                     onLoad = { tracking.loadAlerts() },
@@ -700,7 +712,7 @@ fun QasdaNavHost(
                         // was true when it was observed, and re-running the
                         // question is the only thing that can say what the
                         // route costs now.
-                        val query = trackState.watches.firstOrNull { it.id == alert.watchId }?.asQuery()
+                        val query = (trackState.watches + trackState.history).firstOrNull { it.id == alert.watchId }?.asQuery()
                         if (query != null) {
                             onRemember(query)
                             vm.search(query)
@@ -727,6 +739,9 @@ fun QasdaNavHost(
                             restoreState = true
                         }
                     }
+                } else if (googleUser == null) {
+                    GoogleAccountPanel(googleAccount, api, lang, device = { trackState.device }, signInOnly = true,
+                        onChanged = { tracking.accountChanged() })
                 } else {
                     TrackScreen(
                         query = query,
@@ -794,6 +809,12 @@ fun QasdaNavHost(
                     onHomeAirport = { nav.navigate(PICK_HOME) },
                     onAbout = { nav.navigate(ABOUT) },
                     onOpen = { path -> openUrl(context, BuildConfig.API_BASE + path) },
+                    identityPanel = {
+                        GoogleAccountPanel(googleAccount, api, lang, device = { trackState.device }, recent = recent,
+                            history = trackState.history, onRestart = { tracking.restart(it) },
+                            historyHasMore = trackState.historyHasMore, onMoreHistory = { tracking.loadMore(history = true) },
+                            onChanged = { tracking.accountChanged() }, onSearch = { query -> vm.search(query); nav.navigate(RESULTS) })
+                    },
                 )
             }
             // The same picker the search uses, answering a different

@@ -9,6 +9,8 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
+import io.ktor.client.request.patch
+import io.ktor.client.request.delete
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsChannel
@@ -40,6 +42,7 @@ class QasdaApi(
     private val baseUrl: String,
     private val apiKey: String,
     private val deviceId: String,
+    private val accountToken: suspend () -> String? = { null },
 ) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -310,7 +313,62 @@ class QasdaApi(
         envelope.data
     }.getOrNull()
 
+    suspend fun accountGet(path: String): JsonObject? = runCatching {
+        val token = accountToken() ?: return null
+        val envelope: Envelope<JsonObject> = client.get("$baseUrl/api/v1/account$path") { header("Authorization", "Bearer $token") }.body()
+        envelope.data
+    }.getOrNull()
+
+    suspend fun accountPost(path: String, body: JsonObject): JsonObject? = runCatching {
+        val token = accountToken() ?: return null
+        val envelope: Envelope<JsonObject> = client.post("$baseUrl/api/v1/account$path") {
+            header("Authorization", "Bearer $token"); contentType(ContentType.Application.Json); setBody(body)
+        }.body()
+        envelope.data
+    }.getOrNull()
+
+    suspend fun accountPatch(path: String, body: JsonObject): Boolean = runCatching {
+        val token = accountToken() ?: return false
+        client.patch("$baseUrl/api/v1/account$path") { header("Authorization", "Bearer $token"); contentType(ContentType.Application.Json); setBody(body) }.status.value in 200..299
+    }.getOrDefault(false)
+    suspend fun accountDelete(path: String): Boolean = runCatching {
+        val token = accountToken() ?: return false
+        client.delete("$baseUrl/api/v1/account$path") { header("Authorization", "Bearer $token") }.status.value in 200..299
+    }.getOrDefault(false)
+
+    suspend fun linkAccountDevice(key: DeviceKey): Boolean = accountPost("/devices/link", buildJsonObject {
+        put("deviceId", key.deviceId); put("signature", key.signature)
+    })?.get("linked")?.jsonPrimitive?.content == "true"
+
+    suspend fun unlinkAccountDevice(key: DeviceKey): Boolean = accountPost("/devices/unlink", buildJsonObject {
+        put("deviceId", key.deviceId); put("signature", key.signature)
+    })?.get("unlinked")?.jsonPrimitive?.content == "true"
+
+    suspend fun accountWatches(state: String = "all", offset: Int = 0): List<Watch>? = accountGet("/trackers?state=$state&offset=$offset")?.get("items")?.let {
+        runCatching { json.decodeFromJsonElement(ListSerializer(Watch.serializer()), it) }.getOrNull()
+    }
+
+    suspend fun accountAlerts(): List<Alert>? = accountGet("/notifications")?.get("items")?.let {
+        runCatching { json.decodeFromJsonElement(ListSerializer(Alert.serializer()), it) }.getOrNull()
+    }
+
+    fun savedSearchBody(q: SearchQuery): JsonObject = buildJsonObject {
+        put("origin", q.from); put("destination", q.to); put("departDate", q.departDate)
+        q.returnDate?.let { put("returnDate", it) }; put("adults", q.adults); put("children", q.children); put("infants", q.infants); put("cabinClass", q.cabin.wire)
+    }
+
+    suspend fun trackAccountRoute(q: SearchQuery, seenPrice: Double?): Boolean {
+        val result = accountPost("/trackers", buildJsonObject {
+            put("search", savedSearchBody(q)); put("kind", if (seenPrice == null) "seat" else "price"); seenPrice?.let { put("seenPrice", it) }
+        }) ?: return false
+        return result["created"]?.jsonPrimitive?.content == "true" || result["alreadyActive"]?.jsonPrimitive?.content == "true"
+    }
+
+    suspend fun cancelAccountWatch(id: Long): Boolean = accountPost("/trackers/$id/cancel", buildJsonObject {})?.get("cancelled")?.jsonPrimitive?.content == "true"
+    suspend fun restartAccountWatch(id: Long): Boolean = accountPost("/trackers/$id/restart", buildJsonObject {})?.get("created")?.jsonPrimitive?.content == "true"
+
     private fun HttpRequestBuilder.identify() {
+        header("X-Qasda-Platform", "android")
         header("X-Api-Key", apiKey)
         header("X-Device-Id", deviceId)
         // EventSource cannot set headers, so the web client passes these in the

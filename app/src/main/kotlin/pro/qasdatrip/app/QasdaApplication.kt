@@ -5,8 +5,11 @@ import android.content.Context
 import pro.qasdatrip.core.Airports
 import pro.qasdatrip.core.QasdaApi
 import java.util.UUID
+import pro.qasdatrip.app.data.GoogleAccount
 
 class QasdaApplication : Application() {
+    lateinit var account: GoogleAccount
+        private set
     lateinit var api: QasdaApi
         private set
 
@@ -15,10 +18,13 @@ class QasdaApplication : Application() {
         // 213 airports, shipped with the app: on a phone this is an asset, not
         // a download, and everything Algeria flies is in it.
         Airports.load(assets.open("airports.json").bufferedReader().use { it.readText() })
+        QasdaMessagingService.ensureChannels(this)
+        account = GoogleAccount(this)
         api = QasdaApi(
             baseUrl = BuildConfig.API_BASE,
             apiKey = BuildConfig.API_KEY,
             deviceId = deviceId(this),
+            accountToken = { account.token() },
         )
     }
 

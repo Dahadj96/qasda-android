@@ -39,6 +39,12 @@ data class Watch(
     @SerialName("seen_price") val seenPrice: Double? = null,
     @SerialName("last_notified_at") val lastNotifiedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("tracking_ends_at") val trackingEndsAt: String? = null,
+    val active: Boolean = true,
+    @SerialName("tracker_state") val trackerState: String? = null,
+    @SerialName("last_checked_at") val lastCheckedAt: String? = null,
+    @SerialName("last_attempt_at") val lastAttemptAt: String? = null,
+    @SerialName("next_check_at") val nextCheckAt: String? = null,
 ) {
     val roundTrip: Boolean get() = !returnDate.isNullOrBlank()
 
@@ -103,7 +109,7 @@ data class DeviceKey(
 data class Alert(
     val id: Long,
     val watchId: Long,
-    /** "price" or "seat" — why this arrived. */
+    /** "price", "seat", or "ended" — why this arrived. */
     val kind: String = "price",
     val origin: String = "",
     val destination: String = "",
