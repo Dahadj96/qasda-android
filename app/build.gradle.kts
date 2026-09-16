@@ -58,8 +58,8 @@ android {
         applicationId = "pro.qasdatrip.app"
         minSdk = 26              // Android 8. Below that is under 3% of Algerian devices.
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 4
+        versionName = "0.3.0"
         // The same app-level key the web bundle carries. Not a user secret —
         // it identifies the client, and the server treats it that way.
         buildConfigField("String", "API_BASE", "\"https://qasdatrip.pro\"")

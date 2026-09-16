@@ -60,12 +60,8 @@ import java.util.Locale
  * was the same complaint underneath: the screen never said what it was
  * asking for.
  *
- * They opened a grid of numbers with no way of knowing whether one tap was
- * expected or two - the trip type had been chosen two screens earlier and
- * forgotten by the time the calendar appeared, and there was no way to
- * change it from here. So the choice now lives at the top of this screen,
- * beside two slots that show what has been picked so far and which one is
- * being filled in. Nothing about the question is off-screen.
+ * Trip type is chosen once on Home. This screen reflects that decision with
+ * one or two date slots rather than asking the same question again.
  *
  * The month arrows are gone. Twelve months scroll continuously, which is
  * what every calendar built for a phone does, and it dissolves the other
@@ -138,18 +134,6 @@ fun DatesScreen(
             routeSubtitle?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = Ink.muted)
             }
-
-            // The question this screen is really asking, answerable here.
-            TripTypeToggle(
-                roundTrip = roundTrip,
-                onChange = { wantsReturn ->
-                    haptics.play(Feedback.Selection)
-                    onTripType(wantsReturn)
-                    // Switching to a return trip aims the next tap at it;
-                    // switching away drops a return that no longer applies.
-                    if (wantsReturn) filling = Slot.RETURN else onPick(depart, null)
-                },
-            )
 
             DateSlots(
                 depart = departDay,

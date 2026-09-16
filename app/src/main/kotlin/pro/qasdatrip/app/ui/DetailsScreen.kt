@@ -3,6 +3,7 @@ package pro.qasdatrip.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,6 +98,9 @@ fun DetailsScreen(
         .mapNotNull { (site, value) -> value?.takeIf { it > 0 }?.let { site to it } }
         .sortedBy { it.second }
     val best = quotes.firstOrNull()
+    var selectedSite by remember(flight.id, quotes) { mutableStateOf(best?.first) }
+    val selectedQuote = quotes.firstOrNull { it.first == selectedSite } ?: best
+    var section by remember(flight.id) { mutableStateOf(DetailSection.ITINERARY) }
 
     Column(modifier = Modifier.fillMaxSize().background(Ink.canvas)) {
         // The page is titled by what it is, not by which airline it happens
@@ -107,81 +115,39 @@ fun DetailsScreen(
             verticalArrangement = Arrangement.spacedBy(Space.s4),
         ) {
             item { OfferSummary(flight) }
+            item { DetailTabs(selected = section, onSelect = { section = it }) }
 
-            item {
-                Text(
-                    words.itinerary.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Ink.muted,
-                )
-            }
-            flight.outbound?.let { leg -> item { LegCard(leg, if (flight.inbound != null) words.outbound else null) } }
-            flight.inbound?.let { leg -> item { LegCard(leg, words.inbound) } }
-
-            // Baggage before prices, not after.
-            //
-            // It was the last card on the page, under four site prices, and
-            // that is the wrong order for the decision being made: what the
-            // fare carries changes which price is actually the cheapest. A
-            // fare eight thousand dinars lighter with no hold bag is not
-            // cheaper than one with a bag, and somebody who reads the prices
-            // first has already made up their mind by the time the page tells
-            // them so.
-            item {
-                Text(
-                    words.baggageHeading.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Ink.muted,
-                )
-            }
-            item { BaggageCard(flight) }
-
-            if (quotes.isNotEmpty()) {
-                item {
-                    Text(
-                        words.sameFlightOn
-                            .replace("{n}", Money.isolate(quotes.size.toString()))
-                            .uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Ink.muted,
-                    )
+            when (section) {
+                DetailSection.ITINERARY -> {
+                    flight.outbound?.let { leg -> item { LegCard(leg, if (flight.inbound != null) words.outbound else null) } }
+                    flight.inbound?.let { leg -> item { LegCard(leg, words.inbound) } }
                 }
-                item {
-                    // One card, hairlines between the rows. Separate cards
-                    // per site read as four offers; this is four prices for
-                    // one seat, and the shape should say so.
-                    //
-                    // Every row is a way out, not just the top one. The page
-                    // used to list four sites and let you leave through
-                    // exactly one of them — the cheapest — which makes the
-                    // other three decoration. People have reasons for
-                    // preferring a site that has nothing to do with price:
-                    // a card that works there, a refund that arrived once, a
-                    // number they can ring. Comparing prices and then
-                    // choosing for them is not comparing.
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(Radius.md))
-                            .background(Ink.surface)
-                            .border(1.dp, Ink.line, RoundedCornerShape(Radius.md)),
-                    ) {
-                        quotes.forEachIndexed { index, (site, amount) ->
-                            if (index > 0) Hairline()
-                            SiteRow(
-                                site = site,
-                                amount = amount,
-                                seats = flight.seats[site],
-                                best = index == 0,
-                                onClick = { onBook(site) },
-                            )
+                DetailSection.BAGGAGE -> item { BaggageCard(flight) }
+                DetailSection.FARE -> item {
+                    val rules = flight.fareRules
+                    if (rules != null) {
+                        ConditionsCard(rules.refundable, rules.changeable, rules.refundFee, rules.changeFee)
+                    } else {
+                        MissingFareRules(lang)
+                    }
+                }
+                DetailSection.PROVIDERS -> if (quotes.isNotEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md))
+                                .background(Ink.surface).border(1.dp, Ink.line, RoundedCornerShape(Radius.md)),
+                        ) {
+                            quotes.forEachIndexed { index, (site, amount) ->
+                                if (index > 0) Hairline()
+                                SiteRow(
+                                    site = site, amount = amount, seats = flight.seats[site],
+                                    best = index == 0, selected = selectedSite == site,
+                                    onClick = { selectedSite = site },
+                                )
+                            }
                         }
                     }
                 }
-            }
-
-            flight.fareRules?.let { rules ->
-                item { ConditionsCard(rules.refundable, rules.changeable, rules.refundFee, rules.changeFee) }
             }
         }
 
@@ -192,7 +158,7 @@ fun DetailsScreen(
                 .padding(horizontal = Space.s4, vertical = Space.s3),
             verticalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
-            best?.let { (site, amount) ->
+            selectedQuote?.let { (site, amount) ->
                 Button(
                     onClick = { onBook(site) },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -244,6 +210,45 @@ fun DetailsScreen(
             }
         }
     }
+}
+
+private enum class DetailSection { ITINERARY, BAGGAGE, FARE, PROVIDERS }
+
+@Composable
+private fun DetailTabs(selected: DetailSection, onSelect: (DetailSection) -> Unit) {
+    val words = LocalWords.current
+    val lang = LocalLang.current
+    val labels = listOf(
+        DetailSection.ITINERARY to words.itinerary,
+        DetailSection.BAGGAGE to words.baggageHeading,
+        DetailSection.FARE to when (lang) { Lang.AR -> "شروط التذكرة"; Lang.EN -> "Fare"; else -> "Tarif" },
+        DetailSection.PROVIDERS to when (lang) { Lang.AR -> "البائعون"; Lang.EN -> "Providers"; else -> "Vendeurs" },
+    )
+    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
+        labels.forEach { (value, label) ->
+            val active = selected == value
+            Column(
+                modifier = Modifier.clickable { onSelect(value) }.padding(horizontal = Space.s3, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = if (active) Ink.accentDeep else Ink.muted)
+                Box(
+                    modifier = Modifier.padding(top = 7.dp).width(44.dp).height(2.dp)
+                        .background(if (active) Ink.accentUi else androidx.compose.ui.graphics.Color.Transparent),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MissingFareRules(lang: Lang) {
+    val text = when (lang) {
+        Lang.AR -> "سيؤكد البائع شروط التغيير والاسترداد قبل الدفع."
+        Lang.EN -> "The provider will confirm change and refund conditions before payment."
+        else -> "Le vendeur confirmera les conditions de modification et de remboursement avant le paiement."
+    }
+    Card { Text(text, style = MaterialTheme.typography.bodyMedium, color = Ink.inkSoft) }
 }
 
 @Composable
@@ -589,6 +594,7 @@ private fun SiteRow(
     amount: Double,
     seats: Int?,
     best: Boolean,
+    selected: Boolean,
     onClick: () -> Unit,
 ) {
     val words = LocalWords.current
@@ -596,7 +602,7 @@ private fun SiteRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (best) Ink.accentSoft else Ink.surface)
+            .background(if (selected) Ink.accentSoft else Ink.surface)
             .clickable(onClick = onClick)
             .padding(horizontal = Space.s4, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(Space.s3),
@@ -606,7 +612,7 @@ private fun SiteRow(
             Text(
                 Sites.name(site),
                 style = MaterialTheme.typography.titleMedium,
-                color = if (best) Ink.accentDeep else Ink.ink,
+                color = if (selected) Ink.accentDeep else Ink.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -631,13 +637,13 @@ private fun SiteRow(
         Text(
             Money.format(amount, lang),
             style = MaterialTheme.typography.titleLarge,
-            color = if (best) Ink.accentDeep else Ink.ink,
+            color = if (selected) Ink.accentDeep else Ink.ink,
         )
         // A chevron per row, because every row goes somewhere now.
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = if (best) Ink.accentDeep else Ink.muted,
+            tint = if (selected) Ink.accentDeep else Ink.muted,
             modifier = Modifier.size(20.dp),
         )
     }

@@ -110,8 +110,7 @@ fun SearchScreen(
                 onPickTo = onPickTo,
                 onPickDates = onPickDates,
                 onPickTravellers = onPickTravellers,
-                onDirectOnly = onDirectOnly,
-                onBagOnly = onBagOnly,
+                onSearch = { haptics.play(Feedback.Commit); onSearch() },
                 modifier = Modifier.padding(
                     top = CARD_TOP,
                     start = Space.s4,
@@ -125,28 +124,8 @@ fun SearchScreen(
 
             OfflineBanner(modifier = Modifier.padding(bottom = Space.s3))
 
-            // Outside the card, as drawn. Inside it the button read as the
-            // last field of a form; on its own it reads as the thing the
-            // card is for.
-            Button(
-                // Felt at the tap, not at the answer: this is the moment the
-                // person committed. Whether four sites have anything to say
-                // is not known yet, and pretending otherwise here would be
-                // feedback for an outcome that does not exist.
-                onClick = { haptics.play(Feedback.Commit); onSearch() },
-                enabled = draft.complete,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape = RoundedCornerShape(Radius.pill),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Ink.solid,
-                    contentColor = Ink.onSolid,
-                    disabledContainerColor = Ink.surfaceSoft,
-                    disabledContentColor = Ink.muted,
-                ),
-            ) { Text(words.search, style = MaterialTheme.typography.titleMedium) }
-
             if (recent.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(Space.s5))
+                Spacer(modifier = Modifier.height(Space.s4))
                 Text(
                     words.recentSearches.uppercase(),
                     style = MaterialTheme.typography.labelSmall,
@@ -163,7 +142,7 @@ fun SearchScreen(
                         .background(Ink.surface)
                         .border(1.dp, Ink.line, RoundedCornerShape(Radius.md)),
                 ) {
-                    recent.take(3).forEachIndexed { index, past ->
+                    recent.take(2).forEachIndexed { index, past ->
                         if (index > 0) {
                             Box(
                                 modifier = Modifier
@@ -184,7 +163,7 @@ fun SearchScreen(
 
 /** How far down the photograph the card starts, as drawn. */
 private val HERO_HEIGHT = 300.dp
-private val CARD_TOP = 176.dp
+private val CARD_TOP = 148.dp
 
 /**
  * The view from the window.
@@ -308,8 +287,7 @@ private fun SearchCard(
     onPickTo: () -> Unit,
     onPickDates: () -> Unit,
     onPickTravellers: () -> Unit,
-    onDirectOnly: (Boolean) -> Unit,
-    onBagOnly: (Boolean) -> Unit,
+    onSearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val words = LocalWords.current
@@ -391,17 +369,23 @@ private fun SearchCard(
             )
         }
 
-        Spacer(modifier = Modifier.height(Space.s2))
+        Spacer(modifier = Modifier.height(Space.s3))
 
-        // The two things people want to say before they see a price. Set
-        // here, they arrive on the results already switched on, where the
-        // same two controls turn them off again.
-        QuickFilters(
-            directOnly = draft.directOnly,
-            bagOnly = draft.bagOnly,
-            onDirectOnly = onDirectOnly,
-            onBagOnly = onBagOnly,
-        )
+        // Search belongs to the question it submits. Keeping it inside the
+        // compact card makes the hierarchy unambiguous and keeps the full
+        // route/date/traveller flow above the fold on ordinary phones.
+        Button(
+            onClick = onSearch,
+            enabled = draft.complete,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(Radius.sm),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Ink.accentUi,
+                contentColor = Color.White,
+                disabledContainerColor = Ink.surfaceSoft,
+                disabledContentColor = Ink.muted,
+            ),
+        ) { Text(words.search, style = MaterialTheme.typography.titleMedium) }
     }
 }
 
@@ -543,7 +527,7 @@ private fun TripToggle(roundTrip: Boolean, onChange: (Boolean) -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(Radius.pill))
-                    .background(if (on) Ink.surface else Color.Transparent)
+                    .background(if (on) Ink.accentUi else Color.Transparent)
                     .clickable { onChange(isReturn) }
                     // 7, not 10: with the track's own 4dp this makes the
                     // control 40dp tall, which is what it is in the file.
@@ -553,7 +537,7 @@ private fun TripToggle(roundTrip: Boolean, onChange: (Boolean) -> Unit) {
                 Text(
                     label,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (on) Ink.ink else Ink.muted,
+                    color = if (on) Color.White else Ink.muted,
                 )
             }
         }

@@ -135,6 +135,14 @@ fun FlightCard(
             .padding(CardPad),
         verticalArrangement = Arrangement.spacedBy(Space.s3),
     ) {
+        if (best) {
+            Text(
+                text = LocalWords.current.bestPrice.uppercase(),
+                style = MetaType,
+                color = Ink.accentDeep,
+                maxLines = 1,
+            )
+        }
         if (flight.inbound != null) {
             RoundTripBody(flight, soldOut)
         } else {
@@ -154,11 +162,8 @@ fun FlightCard(
  */
 @Composable
 private fun OneWayBody(flight: Flight, soldOut: Boolean) {
-    val lang = LocalLang.current
-    val words = LocalWords.current
     val leg = flight.outbound ?: flight.outboundOrSelf
     val carrier = leg?.operatingAirline ?: flight.airline
-    val cheapest = flight.cheapest
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -184,13 +189,6 @@ private fun OneWayBody(flight: Flight, soldOut: Boolean) {
                 )
             }
         }
-        PriceBlock(
-            price = cheapest?.second,
-            note = cheapest?.let { words.onlyOnSite.replace("{site}", Sites.name(it.first)) },
-            soldOut = soldOut,
-            lang = lang,
-            align = Alignment.End,
-        )
     }
 
     leg?.let { TimesRow(it) }
@@ -505,40 +503,21 @@ private fun Footer(flight: Flight, best: Boolean, soldOut: Boolean, onOpen: () -
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Space.s2),
     ) {
-        // A round trip carries its price down here, under both legs, rather
-        // than in a header over the first of them.
-        if (flight.inbound != null) {
-            PriceBlock(
-                price = flight.cheapest?.second,
-                note = flight.cheapest?.let {
-                    "${words.roundTrip.lowercase()}, ${words.onlyOnSite.replace("{site}", Sites.name(it.first))}"
-                },
-                soldOut = soldOut,
-                lang = lang,
-                align = Alignment.Start,
-            )
-            Spacer(modifier = Modifier.weight(1f))
-        } else {
-            // "Le moins cher sur 4 sites", not "MEILLEUR PRIX". The shouted
-            // version was a badge on a card that already wears a green
-            // border; the sentence says the same thing and says how it is
-            // known, which is the claim this product actually makes.
-            val sites = Money.isolate(flight.quotingSites.toString())
-            Text(
-                text = when {
-                    soldOut -> ""
-                    best && flight.quotingSites > 1 -> words.cheapestOnSites.replace("{n}", sites)
-                    best -> words.bestPrice
+        val sites = Money.isolate(flight.quotingSites.toString())
+        PriceBlock(
+            price = flight.cheapest?.second,
+            note = flight.cheapest?.let { (site, _) ->
+                val comparison = when {
                     flight.quotingSites > 1 -> words.sitesQuoting.replace("{n}", sites)
-                    else -> ""
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (best) Ink.accentDeep else Ink.muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-        }
+                    else -> words.onlyOnSite.replace("{site}", Sites.name(site))
+                }
+                if (flight.quotingSites > 1) "$comparison · ${Sites.name(site)}" else comparison
+            },
+            soldOut = soldOut,
+            lang = lang,
+            align = Alignment.Start,
+        )
+        Spacer(modifier = Modifier.weight(1f))
         // Nothing to look at on a fare nobody is selling; what somebody wants
         // there is to be told when that changes.
         CardAction(label = if (soldOut) words.notifyMe else words.seeDetails, onClick = onOpen)

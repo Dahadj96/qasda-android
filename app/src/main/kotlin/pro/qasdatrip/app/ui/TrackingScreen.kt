@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -53,6 +54,11 @@ import pro.qasdatrip.core.Money
 import pro.qasdatrip.core.routeArrow
 import pro.qasdatrip.core.PriceTrend
 import pro.qasdatrip.core.Watch
+import pro.qasdatrip.core.Lang
+import java.time.Duration
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.format.DateTimeParseException
 
 /**
  * Everything this phone knows it is watching.
@@ -74,6 +80,8 @@ fun TrackingScreen(
 ) {
     val words = LocalWords.current
     val lang = LocalLang.current
+    var kind by remember { mutableStateOf("price") }
+    val visibleWatches = state.watches.filter { if (kind == "seat") it.watchingSeats else !it.watchingSeats }
 
     Column(
         modifier = Modifier
@@ -112,13 +120,17 @@ fun TrackingScreen(
                 }
             }
 
+            item {
+                TrackingKinds(selected = kind, onSelect = { kind = it })
+            }
+
             if (state.keyRejected) {
                 item {
                     Text(words.linkNotValid, style = MaterialTheme.typography.bodyMedium, color = Ink.alert)
                 }
             }
 
-            itemsIndexed(state.watches, key = { i, w -> "$i:${w.id}" }) { _, watch ->
+            itemsIndexed(visibleWatches, key = { i, w -> "$i:${w.id}" }) { _, watch ->
                 WatchCard(
                     watch = watch,
                     onOpen = { onOpen(watch) },
@@ -129,7 +141,7 @@ fun TrackingScreen(
             if (state.hasMore) item {
                 Button(onClick = onLoadMore, enabled = !state.loading) { Text(when (lang) { pro.qasdatrip.core.Lang.AR -> "عرض المزيد"; pro.qasdatrip.core.Lang.EN -> "Load more"; else -> "Afficher plus" }) }
             }
-            if (state.watches.isEmpty() && !state.loading) {
+            if (visibleWatches.isEmpty() && !state.loading) {
                 item {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = Space.s6),
@@ -229,18 +241,14 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
             }
         }
 
-        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Ink.line))
-
-        // The rule, in the sentence somebody would use to describe it — not
-        // two numbers labelled "baseline" and "target" that mean nothing
-        // without the code that reads them.
-        //
-        // No number here is a price we are quoting now. It is what this watch
-        // is measured against, and re-running the search is the only thing
-        // that can say what the route costs today.
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radius.sm))
+                .background(Ink.surfaceSoft)
+                .padding(Space.s3),
             horizontalArrangement = Arrangement.spacedBy(Space.s2),
-            verticalAlignment = Alignment.Top,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             if (seats) {
                 Icon(
@@ -257,16 +265,24 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
                     modifier = Modifier.size(18.dp),
                 )
             }
-            Text(
-                text = when {
-                    seats -> words.watchingSeat
-                    watch.reference != null ->
-                        words.watchingPrice.replace("{price}", Money.format(watch.reference!!, lang))
-                    else -> words.noTrackingSub
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = Ink.inkSoft,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = trackerHeadline(watch, lang),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Ink.ink,
+                )
+                Text(
+                    text = when {
+                        seats -> words.watchingSeat
+                        watch.reference != null -> words.watchingPrice.replace(
+                            "{price}", Money.format(watch.reference!!, lang),
+                        )
+                        else -> words.noTrackingSub
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Ink.inkSoft,
+                )
+            }
         }
 
         watch.seenPrice?.let {
@@ -277,6 +293,19 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
             )
         }
 
+        val lifecycle = watchLifecycle(watch, lang)
+        if (lifecycle != null) {
+            Text(lifecycle.label, style = MaterialTheme.typography.bodySmall, color = Ink.muted)
+            LinearProgressIndicator(
+                progress = { lifecycle.progress },
+                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(Radius.pill)),
+                color = Ink.accentUi,
+                trackColor = Ink.line,
+            )
+        } else if (watch.lastCheckedAt != null) {
+            Text(lastCheckedLabel(watch.lastCheckedAt, lang), style = MaterialTheme.typography.bodySmall, color = Ink.muted)
+        }
+
         // Two controls, side by side and equal, as drawn. Stopping used to be
         // the only one — a red word alone at the bottom right — which made
         // the card's obvious action the destructive one.
@@ -285,14 +314,15 @@ private fun WatchCard(watch: Watch, onOpen: () -> Unit, onStop: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(Space.s2),
         ) {
             WatchAction(
-                label = words.stopTracking,
-                onClick = onStop,
-                bordered = false,
-                modifier = Modifier.weight(1f),
-            )
-            WatchAction(
                 label = words.seeOffers,
                 onClick = onOpen,
+                bordered = false,
+                primary = true,
+                modifier = Modifier.weight(2f),
+            )
+            WatchAction(
+                label = words.stopTracking,
+                onClick = onStop,
                 bordered = true,
                 modifier = Modifier.weight(1f),
             )
@@ -306,12 +336,14 @@ private fun WatchAction(
     label: String,
     onClick: () -> Unit,
     bordered: Boolean,
+    primary: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(
         modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(Radius.sm))
+            .background(if (primary) Ink.accentUi else Ink.surface)
             .then(
                 if (bordered) Modifier.border(1.dp, Ink.lineStrong, RoundedCornerShape(Radius.sm))
                 else Modifier,
@@ -322,9 +354,79 @@ private fun WatchAction(
         Text(
             label,
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = Ink.ink,
+            color = if (primary) androidx.compose.ui.graphics.Color.White else Ink.ink,
             maxLines = 1,
         )
+    }
+}
+
+@Composable
+private fun TrackingKinds(selected: String, onSelect: (String) -> Unit) {
+    val lang = LocalLang.current
+    val labels = when (lang) {
+        Lang.AR -> listOf("price" to "تنبيهات السعر", "seat" to "تنبيهات المقاعد")
+        Lang.EN -> listOf("price" to "Price alerts", "seat" to "Seat alerts")
+        else -> listOf("price" to "Alertes de prix", "seat" to "Alertes de places")
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.pill)).background(Ink.surfaceSoft).padding(4.dp),
+    ) {
+        labels.forEach { (value, label) ->
+            val active = selected == value
+            Box(
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(Radius.pill))
+                    .background(if (active) Ink.accentUi else androidx.compose.ui.graphics.Color.Transparent)
+                    .clickable { onSelect(value) }.padding(vertical = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, color = if (active) androidx.compose.ui.graphics.Color.White else Ink.muted)
+            }
+        }
+    }
+}
+
+private data class WatchLifecycle(val progress: Float, val label: String)
+
+private fun watchLifecycle(watch: Watch, lang: Lang, now: Instant = Instant.now()): WatchLifecycle? {
+    val created = parseIsoInstant(watch.createdAt) ?: return null
+    val ends = parseIsoInstant(watch.trackingEndsAt) ?: return null
+    val total = Duration.between(created, ends).toMinutes().coerceAtLeast(1)
+    val elapsed = Duration.between(created, now).toMinutes().coerceIn(0, total)
+    val remainingHours = Duration.between(now, ends).toHours().coerceAtLeast(0)
+    val label = when (lang) {
+        Lang.AR -> "${lastCheckedLabel(watch.lastCheckedAt, lang)} · متبقي $remainingHours ساعة"
+        Lang.EN -> "${lastCheckedLabel(watch.lastCheckedAt, lang)} · $remainingHours hours remaining"
+        else -> "${lastCheckedLabel(watch.lastCheckedAt, lang)} · $remainingHours h restantes"
+    }
+    return WatchLifecycle((elapsed.toFloat() / total.toFloat()).coerceIn(0f, 1f), label)
+}
+
+private fun trackerHeadline(watch: Watch, lang: Lang): String = when {
+    !watch.active || watch.trackerState == "expired" -> when (lang) {
+        Lang.AR -> "انتهى التتبع"; Lang.EN -> "Tracking ended"; else -> "Suivi terminé"
+    }
+    watch.watchingSeats -> when (lang) {
+        Lang.AR -> "غير متوفر حالياً"; Lang.EN -> "Currently unavailable"; else -> "Indisponible actuellement"
+    }
+    else -> when (lang) {
+        Lang.AR -> "نراقب سعراً أقل"; Lang.EN -> "Watching for a lower price"; else -> "À la recherche d’un prix plus bas"
+    }
+}
+
+private fun lastCheckedLabel(value: String?, lang: Lang): String {
+    val checked = parseIsoInstant(value)
+    val minutes = checked?.let { Duration.between(it, Instant.now()).toMinutes().coerceAtLeast(0) }
+    return when (lang) {
+        Lang.AR -> if (minutes != null) "آخر فحص منذ $minutes د" else "لم يتم الفحص بعد"
+        Lang.EN -> if (minutes != null) "Last checked ${minutes}m ago" else "Not checked yet"
+        else -> if (minutes != null) "Vérifié il y a ${minutes} min" else "Pas encore vérifié"
+    }
+}
+
+private fun parseIsoInstant(value: String?): Instant? {
+    if (value.isNullOrBlank()) return null
+    return try { Instant.parse(value) } catch (_: DateTimeParseException) {
+        try { OffsetDateTime.parse(value).toInstant() } catch (_: DateTimeParseException) { null }
     }
 }
 @Composable
